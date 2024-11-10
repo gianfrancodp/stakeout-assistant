@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survey Coordinate Converter - Cassini-Soldner</title>
+    <title>Survey Coordinate Converter</title>
     <style>
-        /* ... mantengo gli stili precedenti ... */
         body {
             font-family: Arial, sans-serif;
-            max-width: 900px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -18,28 +17,22 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        .settings-grid {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 15px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
         }
-        .info-box {
-            background-color: #e3f2fd;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 10px 0;
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
         }
-        .warning {
-            background-color: #fff3e0;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
+        th {
+            background-color: #4CAF50;
+            color: white;
         }
-        input[type="number"] {
-            width: 200px;
-            padding: 5px;
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
         }
         .result {
             background-color: #e8f5e9;
@@ -47,133 +40,250 @@
             border-radius: 4px;
             margin-top: 10px;
         }
+        .point-selection {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        select {
+            padding: 5px;
+        }
+        .diagram {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .info-box {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-    <!-- ... mantengo le sezioni precedenti ... -->
+    <h1>Stakeout Assistant</h1>
+    <h2>Survey Coordinate Converter</h2>
+    <p>This tool helps you convert survey coordinates to polar coordinates for stakeout.</p>
+    
+    <div class="container">
+        <h2>Load Points</h2>
+        <p>Enter points in CSV format (Name,X,Y,Z) or upload a file:</p>
+        <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
+        <br><br>
+        <input type="file" id="fileInput" accept=".csv,.txt">
+        <br><br>
+        <button onclick="loadPoints()">Load Points</button>
+    </div>
 
     <div class="container">
-        <h2>Cassini-Soldner Projection Settings</h2>
+        <h2>Points List</h2>
+        <table id="pointsTable">
+            <thead>
+                <tr>
+                    <th>Point Name</th>
+                    <th>X</th>
+                    <th>Y</th>
+                    <th>Z</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h2>Convert to Polar Coordinates</h2>
+        <div class="point-selection">
+            <label for="stationPoint">Station Point:</label>
+            <select id="stationPoint"></select>
+
+            <label for="orientPoint">Orientation Point:</label>
+            <select id="orientPoint"></select>
+
+            <label for="targetPoint">Target Point:</label>
+            <select id="targetPoint"></select>
+        </div>
+
         <div class="info-box">
-            <h3>Origin Parameters</h3>
-            <div class="settings-grid">
-                <label for="originLat">Origin Latitude (φ₀) [dd.dddd]:</label>
-                <input type="number" id="originLat" value="0" step="0.0001">
-                
-                <label for="originLon">Origin Longitude (λ₀) [dd.dddd]:</label>
-                <input type="number" id="originLon" value="0" step="0.0001">
-                
-                <label for="a">Semi-major axis (a) [m]:</label>
-                <input type="number" id="a" value="6378137" step="0.1">
-                
-                <label for="f">Flattening (1/f):</label>
-                <input type="number" id="f" value="298.257223563" step="0.000000001">
+            <h3>Sea Level Reduction Parameters</h3>
+            <div class="point-selection">
+                <label for="earthRadius">Earth Radius (km):</label>
+                <input type="number" id="earthRadius" value="6371" step="0.001">
             </div>
         </div>
+
+        <div class="diagram">
+            <strong>Measurement Information:</strong>
+            <ul>
+                <li>Station Point: Where you set up your instrument</li>
+                <li>Orientation Point: Reference for 0° azimuth</li>
+                <li>Target Point: The point you want to measure to</li>
+                <li>Sea Level Reduction: Corrects horizontal distances based on altitude</li>
+            </ul>
+        </div>
+
+        <button onclick="calculatePolar()">Calculate</button>
+        <div id="polarResult" class="result"></div>
     </div>
 
     <script>
-        // ... mantengo le funzioni precedenti ...
+        let points = [];
+        
+        // Constants
+        const DEFAULT_EARTH_RADIUS = 6371000; // meters
 
-        // Funzioni per la proiezione Cassini-Soldner
-        function toRadians(degrees) {
-            return degrees * Math.PI / 180;
+        function loadPoints() {
+            const input = document.getElementById('pointInput').value;
+            points = [];
+            
+            const lines = input.trim().split('\n');
+            for (const line of lines) {
+                const [name, x, y, z] = line.split(',').map(val => val.trim());
+                if (name && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                    points.push({
+                        name,
+                        x: parseFloat(x),
+                        y: parseFloat(y),
+                        z: parseFloat(z)
+                    });
+                }
+            }
+            
+            updateTable();
+            updateSelects();
         }
 
-        function toDegrees(radians) {
-            return radians * 180 / Math.PI;
+        document.getElementById('fileInput').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                document.getElementById('pointInput').value = e.target.result;
+                loadPoints();
+            };
+            
+            reader.readAsText(file);
+        });
+
+        function updateTable() {
+            const tbody = document.querySelector('#pointsTable tbody');
+            tbody.innerHTML = '';
+            
+            points.forEach(point => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = point.name;
+                row.insertCell().textContent = point.x.toFixed(3);
+                row.insertCell().textContent = point.y.toFixed(3);
+                row.insertCell().textContent = point.z.toFixed(3);
+            });
         }
 
-        function computeMeridianConvergence(E, N, phi0, a, e2) {
-            // Calcola la convergenza del meridiano
-            // γ = arctan(E / (N + R))
-            const R = a * (1 - e2) / Math.pow(1 - e2 * Math.pow(Math.sin(phi0), 2), 1.5);
-            return Math.atan2(E, (N + R));
+        function updateSelects() {
+            const stationSelect = document.getElementById('stationPoint');
+            const orientSelect = document.getElementById('orientPoint');
+            const targetSelect = document.getElementById('targetPoint');
+            
+            [stationSelect, orientSelect, targetSelect].forEach(select => {
+                select.innerHTML = '';
+                points.forEach(point => {
+                    const option = new Option(point.name, point.name);
+                    select.add(option);
+                });
+            });
         }
 
-        function computeScaleFactor(E, phi0, a, e2) {
-            // Calcola il fattore di scala
-            // k = 1 + (E² / 2R²)
-            const R = a * (1 - e2) / Math.pow(1 - e2 * Math.pow(Math.sin(phi0), 2), 1.5);
-            return 1 + (Math.pow(E, 2) / (2 * Math.pow(R, 2)));
+        function calculateAzimuth(fromPoint, toPoint) {
+            const dx = toPoint.x - fromPoint.x;
+            const dy = toPoint.y - fromPoint.y;
+            let azimuth = Math.atan2(dy, dx) * (180 / Math.PI);
+            if (azimuth < 0) azimuth += 360;
+            return azimuth;
         }
 
-        function calculateCassiniSoldner() {
-            // Ottieni i parametri dell'origine
-            const phi0 = toRadians(parseFloat(document.getElementById('originLat').value));
-            const lambda0 = toRadians(parseFloat(document.getElementById('originLon').value));
-            const a = parseFloat(document.getElementById('a').value);
-            const f = 1 / parseFloat(document.getElementById('f').value);
-            const e2 = 2 * f - f * f;  // eccentricità al quadrato
+        function normalizeAngle(angle) {
+            while (angle < 0) angle += 360;
+            while (angle >= 360) angle -= 360;
+            return angle;
+        }
 
-            // Ottieni i punti
-            const station = points.find(p => p.name === document.getElementById('stationPoint').value);
-            const orient = points.find(p => p.name === document.getElementById('orientPoint').value);
-            const target = points.find(p => p.name === document.getElementById('targetPoint').value);
+        function reduceToSeaLevel(distance, meanHeight, earthRadius) {
+            // Riduzione della distanza al livello del mare
+            // Formula: D0 = D * (R / (R + h))
+            // dove:
+            // D0 = distanza ridotta al livello del mare
+            // D = distanza misurata
+            // R = raggio della Terra
+            // h = quota media dei punti
+            return distance * (earthRadius / (earthRadius + meanHeight));
+        }
 
+        function calculatePolar() {
+            const stationName = document.getElementById('stationPoint').value;
+            const orientName = document.getElementById('orientPoint').value;
+            const targetName = document.getElementById('targetPoint').value;
+            
+            const station = points.find(p => p.name === stationName);
+            const orient = points.find(p => p.name === orientName);
+            const target = points.find(p => p.name === targetName);
+            
             if (!station || !orient || !target) {
                 alert('Please select all points');
                 return;
             }
 
-            // Calcola la distanza media dall'origine (Est media)
-            const meanE = (station.x + target.x) / 2;
+            // Get Earth radius in meters
+            const earthRadius = parseFloat(document.getElementById('earthRadius').value) * 1000;
 
-            // Calcola la convergenza del meridiano
-            const meridianConv = computeMeridianConvergence(meanE, station.y, phi0, a, e2);
+            // Calculate orientation azimuth
+            const orientAzimuth = calculateAzimuth(station, orient);
+            
+            // Calculate target azimuth
+            const targetAzimuth = calculateAzimuth(station, target);
+            
+            // Calculate relative azimuth
+            const relativeAzimuth = normalizeAngle(targetAzimuth - orientAzimuth);
 
-            // Calcola il fattore di scala
-            const scaleFactor = computeScaleFactor(meanE, phi0, a, e2);
-
-            // Calcola l'azimut e la distanza come prima
+            // Calculate distances and vertical angle
             const dx = target.x - station.x;
             const dy = target.y - station.y;
             const dz = target.z - station.z;
 
-            let targetAzimuth = Math.atan2(dy, dx) * (180 / Math.PI);
-            if (targetAzimuth < 0) targetAzimuth += 360;
-
             const horizontalDistance = Math.sqrt(dx * dx + dy * dy);
             const totalDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            const verticalAngle = Math.atan2(dz, horizontalDistance) * (180 / Math.PI);
 
-            // Correggi l'azimut per la convergenza del meridiano
-            const gridAzimuth = targetAzimuth;
-            const geodesicAzimuth = gridAzimuth + toDegrees(meridianConv);
-
-            // Correggi la distanza per il fattore di scala
-            const gridDistance = horizontalDistance;
-            const geodesicDistance = gridDistance / scaleFactor;
-
-            // Calcola anche la riduzione al livello del mare come prima
-            const earthRadius = parseFloat(document.getElementById('earthRadius').value) * 1000;
+            // Calculate mean height above sea level
             const meanHeight = (station.z + target.z) / 2;
-            const seaLevelDistance = reduceToSeaLevel(geodesicDistance, meanHeight, earthRadius);
+            
+            // Reduce horizontal distance to sea level
+            const seaLevelDistance = reduceToSeaLevel(horizontalDistance, meanHeight, earthRadius);
 
-            // Mostra i risultati
+            // Calculate scale factor
+            const scaleFactor = seaLevelDistance / horizontalDistance;
+
             const result = document.getElementById('polarResult');
             result.innerHTML = `
-                <strong>Cassini-Soldner Results:</strong><br>
-                <br>
-                <strong>Grid Values:</strong><br>
-                Grid Distance: ${gridDistance.toFixed(3)} m<br>
-                Grid Azimuth: ${gridAzimuth.toFixed(4)}°<br>
-                <br>
-                <strong>Geodetic Values:</strong><br>
-                Geodetic Distance: ${geodesicDistance.toFixed(3)} m<br>
-                Geodetic Azimuth: ${geodesicAzimuth.toFixed(4)}°<br>
-                Sea Level Distance: ${seaLevelDistance.toFixed(3)} m<br>
-                <br>
-                <strong>Projection Parameters:</strong><br>
-                Mean Easting from Origin: ${meanE.toFixed(3)} m<br>
-                Meridian Convergence: ${toDegrees(meridianConv).toFixed(4)}°<br>
+                <strong>Results:</strong><br>
+                <strong>Distances:</strong><br>
+                Measured Horizontal Distance: ${horizontalDistance.toFixed(3)} meters<br>
+                Sea Level Horizontal Distance: ${seaLevelDistance.toFixed(3)} meters<br>
+                Total Spatial Distance: ${totalDistance.toFixed(3)} meters<br>
                 Scale Factor: ${scaleFactor.toFixed(6)}<br>
-                Mean Height: ${meanHeight.toFixed(3)} m<br>
-                Combined Scale Factor: ${(scaleFactor * (earthRadius / (earthRadius + meanHeight))).toFixed(6)}
+                <br>
+                <strong>Angles:</strong><br>
+                Orientation Azimuth: ${orientAzimuth.toFixed(4)}°<br>
+                Target Azimuth: ${targetAzimuth.toFixed(4)}°<br>
+                Relative Angle: ${relativeAzimuth.toFixed(4)}°<br>
+                Vertical Angle: ${verticalAngle.toFixed(4)}°<br>
+                <br>
+                <strong>Heights:</strong><br>
+                Mean Height: ${meanHeight.toFixed(3)} meters<br>
             `;
         }
-
-        // Sostituisco la vecchia funzione calculatePolar con la nuova
-        const calculatePolar = calculateCassiniSoldner;
     </script>
 </body>
 </html>
