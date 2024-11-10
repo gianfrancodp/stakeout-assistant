@@ -156,6 +156,9 @@
         
         // Constants
         const DEFAULT_EARTH_RADIUS = 6371000; // meters
+        const DEG_TO_GON = 400/360;  // Conversion factor from degrees to gon/centesimal
+        const GON_TO_DEG = 360/400;  // Conversion factor from gon/centesimal to degrees
+        const PI = Math.PI;
 
         function loadPoints() {
             const input = document.getElementById('pointInput').value;
@@ -222,14 +225,27 @@
         function calculateAzimuth(fromPoint, toPoint) {
             const dx = toPoint.x - fromPoint.x;
             const dy = toPoint.y - fromPoint.y;
-            let azimuth = Math.atan2(dy, dx) * (180 / Math.PI);
-            if (azimuth < 0) azimuth += 360;
-            return azimuth;
+            // Calculate azimuth in radians from East (0°)
+            let azimuthRad = Math.atan2(dy, dx);
+            
+            // Convert to degrees
+            let azimuthDeg = azimuthRad * (180 / PI);
+            
+            // Convert to clockwise from North (90°)
+            let azimuthFromNorth = (90 - azimuthDeg);
+            
+            // Normalize to 0-360 range
+            if (azimuthFromNorth < 0) azimuthFromNorth += 360;
+            
+            // Convert to gon/centesimal
+            let azimuthGon = azimuthFromNorth * DEG_TO_GON;
+            
+            return azimuthGon;
         }
 
         function normalizeAngle(angle) {
-            while (angle < 0) angle += 360;
-            while (angle >= 360) angle -= 360;
+            while (angle < 0) angle += 400;
+            while (angle >= 400) angle -= 400;
             return angle;
         }
 
@@ -281,8 +297,12 @@
 
             const horizontalDistance = Math.sqrt(dx * dx + dy * dy);
             const totalDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            const verticalAngle = Math.atan2(dz, horizontalDistance) * (180 / Math.PI);
-            const zenithAngle = 90 - verticalAngle;
+            // Calculate vertical angle in centesimal
+            const verticalAngleDeg = Math.atan2(dz, horizontalDistance) * (180 / PI);
+            const verticalAngleGon = verticalAngleDeg * DEG_TO_GON;
+            
+            // Calculate zenith angle in centesimal (100g - vertical angle)
+            const zenithAngleGon = 100 - verticalAngleGon;
 
             // Calculate mean height above sea level
             const meanHeight = (station.z + target.z) / 2;
@@ -306,8 +326,8 @@
                 Orientation Azimuth: ${orientAzimuth.toFixed(4)}°<br>
                 Target Azimuth: ${targetAzimuth.toFixed(4)}°<br>
                 Relative Angle: ${relativeAzimuth.toFixed(4)}°<br>
-                Vertical Angle: ${verticalAngle.toFixed(4)}°<br>
-                Zenith Angle: ${zenithAngle.toFixed(4)}°<br>
+                Vertical Angle: ${verticalAngleGon.toFixed(4)}ᵍ<br>
+                Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
                 <br>
                 <strong>Heights:</strong><br>
                 Station Ground Height: ${station.z.toFixed(3)} meters<br>

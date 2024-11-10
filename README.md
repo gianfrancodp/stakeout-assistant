@@ -1,75 +1,137 @@
 # stakeout-assistant
 a simple Javascript project to convert from cartesian to polar coordinates in topographical surveys
 
-# Survey Coordinate Converter - Cassini-Soldner Projection
+# Survey Coordinate Converter
 
-This project is a web-based application that assists with converting geographic coordinates into survey coordinates using the Cassini-Soldner projection. The application provides tools for calculating projection parameters, including grid and geodetic values, azimuth, and scale factors.
+A web-based tool for surveyors to convert between coordinate systems and calculate polar coordinates with instrument and target height considerations. Built for *total station* surveying applications.
 
 ## Features
 
-- **Input Fields**: Users can input parameters such as origin latitude, origin longitude, semi-major axis, and flattening.
-- **Cassini-Soldner Projection**: Compute coordinates based on the Cassini-Soldner projection, including grid azimuth and distance.
-- **Geodetic Calculations**: Output geodetic distance and azimuth, corrected for sea level and meridian convergence.
-- **Interactive User Interface**: Simple form layout with labels, inputs, and result displays for easy navigation.
+### Input Handling
 
-## Project Structure
+- CSV data import for survey points
+- File upload support (.csv, .txt)
+- Point data format: Name, X, Y, Z, Instrument/Target Height
 
-- `index.html`: Contains the HTML structure of the app, including input forms, settings grid, and result display.
-- `style`: Embedded CSS in the HTML file provides styling for elements like `.container`, `.info-box`, and `.settings-grid`.
-- `script`: JavaScript functions for calculations, including conversion between degrees and radians, and computing Cassini-Soldner parameters.
+### Coordinate Systems
 
-## Getting Started
+- Cartesian (X, Y, Z) to Polar conversion
+- Centesimal angle system (0-400ᵍ)
+- Clockwise angle measurements from North
+- Zenith angle calculations (100ᵍ at horizon)
 
-To run the project, open `index.html` in a web browser. This will load the form interface where users can enter their data and calculate the coordinates.
+### Height Considerations
 
-### Prerequisites
+- Instrument height input
+- Target/prism height input
+- Ground-to-instrument corrections
+- Mean height calculations
 
-This project is standalone and only requires a modern web browser with JavaScript enabled.
+### Distance Calculations
+
+- Horizontal distance
+- Spatial (3D) distance
+- Sea level reduction
+- Scale factor computation
+
+### Angle Calculations
+
+- Orientation azimuth (centesimal)
+- Target azimuth (centesimal)
+- Relative angles
+- Vertical angles
+- Zenith angles
 
 ## Usage
 
-1. **Input the following parameters**:
-   - **Origin Latitude (φ₀)** and **Origin Longitude (λ₀)**: The origin coordinates for the Cassini-Soldner projection.
-   - **Semi-major Axis (a)**: Typically set to the WGS 84 value (6378137 meters).
-   - **Flattening (1/f)**: Define the flattening, e.g., `298.257223563`.
+### Data Input
 
-2. **Run the Calculation**: Press a button (if provided) to calculate projection parameters and distances.
+1. Enter point data in CSV format:
+```
+PointName,X,Y,Z,InstrumentHeight
+ST1,1000.000,2000.000,100.000,1.600
+ST2,1050.000,2050.000,101.500,1.600
+```
 
-3. **Output**: The app displays calculated values for:
-   - Grid and Geodetic distances
-   - Azimuth (grid and geodesic)
-   - Meridian Convergence
-   - Scale Factor
-   - Sea Level Distance
+2. Or upload a CSV/TXT file with the same format
 
-## Code Structure
+### Setting Up a Measurement
 
-### Key JavaScript Functions
+1. Select station point (where total station is set up)
+2. Select orientation point (reference for 0ᵍ)
+3. Select target point (point to measure to)
+4. Enter instrument height at station
+5. Enter prism height at target
+6. Click "Calculate" to get results
 
-- `toRadians(degrees)`: Converts degrees to radians.
-- `toDegrees(radians)`: Converts radians to degrees.
-- `computeMeridianConvergence(E, N, phi0, a, e2)`: Calculates meridian convergence based on inputs.
-- `computeScaleFactor(E, phi0, a, e2)`: Computes the scale factor for given coordinates.
-- `calculateCassiniSoldner()`: Main function that gathers user inputs, performs calculations, and outputs results.
+### Results
 
-### HTML Elements
+The tool provides:
+- Distances (horizontal, spatial, sea level reduced)
+- Angles in centesimal system (azimuth, relative, zenith)
+- Height information and corrections
+- Scale factor
 
-- **Settings Grid**: The `.settings-grid` class creates a grid layout for labels and input fields.
-- **Results Display**: The `.result` div is used to show calculation outputs.
+## Technical Details
 
-### Note
+### Angle System
 
-Ensure that you define:
-- `points` array containing station, orient, and target points.
-- `reduceToSeaLevel` function to complete sea level distance calculations.
+- Uses centesimal (gon/grad) system
+- 400ᵍ = full circle
+- 100ᵍ = right angle
+- Clockwise measurement from North
+- Zenith angle measured from vertical (100ᵍ at horizon)
 
-## Example
+### Formulas
 
-Sample inputs for typical survey parameters:
-- Origin Latitude: `0.0000`
-- Origin Longitude: `0.0000`
-- Semi-major axis (a): `6378137`
-- Flattening (1/f): `298.257223563`
+#### Azimuth Calculation
 
-After entering these values, click "Calculate" to view Cassini-Soldner projection results.
+```javascript
+azimuthGon = (90° - arctan2(dy, dx)) * (400ᵍ/360°)
+```
 
+#### Zenith Angle
+
+```javascript
+zenithAngleGon = 100ᵍ - verticalAngleGon
+```
+
+#### Sea Level Reduction
+
+```javascript
+seaLevelDistance = measuredDistance * (earthRadius / (earthRadius + meanHeight))
+```
+
+### Height Corrections
+
+- Station height added to station Z coordinate
+- Target height added to target Z coordinate
+- Heights considered in vertical angle calculations
+
+## Installation
+
+1. Clone the repository or download the HTML file
+2. Open the HTML file in a web browser
+3. No additional dependencies required
+
+## Browser Compatibility
+
+- Chrome (recommended)
+- Firefox
+- Safari
+- Edge
+
+## Known Limitations
+
+- Single file HTML/JavaScript implementation
+- Client-side processing only
+- Limited to manual data input or file upload
+- No data persistence
+
+## Contributing
+
+Feel free to submit issues and enhancement requests or contribute to the development.
+
+## License
+
+see [LICENSE](LICENSE)file
