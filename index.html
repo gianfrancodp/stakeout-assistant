@@ -47,7 +47,17 @@
             align-items: center;
             margin-bottom: 10px;
         }
-        select {
+        .height-inputs {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #fff3e0;
+            border-radius: 4px;
+        }
+        select, input[type="number"] {
             padding: 5px;
         }
         .diagram {
@@ -89,6 +99,7 @@
                     <th>X</th>
                     <th>Y</th>
                     <th>Z</th>
+                    <th>Instrument/Target Height</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -108,6 +119,14 @@
             <select id="targetPoint"></select>
         </div>
 
+        <div class="height-inputs">
+            <label for="stationHeight">Station Instrument Height (m):</label>
+            <input type="number" id="stationHeight" value="1.600" step="0.001">
+
+            <label for="targetHeight">Target Prism Height (m):</label>
+            <input type="number" id="targetHeight" value="1.600" step="0.001">
+        </div>
+
         <div class="info-box">
             <h3>Sea Level Reduction Parameters</h3>
             <div class="point-selection">
@@ -122,6 +141,8 @@
                 <li>Station Point: Where you set up your instrument</li>
                 <li>Orientation Point: Reference for 0° azimuth</li>
                 <li>Target Point: The point you want to measure to</li>
+                <li>Instrument Height: Height of total station above the ground point</li>
+                <li>Target Height: Height of prism/reflector above the ground point</li>
                 <li>Sea Level Reduction: Corrects horizontal distances based on altitude</li>
             </ul>
         </div>
@@ -148,7 +169,8 @@
                         name,
                         x: parseFloat(x),
                         y: parseFloat(y),
-                        z: parseFloat(z)
+                        z: parseFloat(z),
+                        height: height ? parseFloat(height) : 0
                     });
                 }
             }
@@ -179,6 +201,7 @@
                 row.insertCell().textContent = point.x.toFixed(3);
                 row.insertCell().textContent = point.y.toFixed(3);
                 row.insertCell().textContent = point.z.toFixed(3);
+                row.insertCell().textContent = point.height ? point.height.toFixed(3) : "0.000";
             });
         }
 
@@ -235,6 +258,10 @@
                 return;
             }
 
+            // Get instrument and target heights
+            const stationHeight = parseFloat(document.getElementById('stationHeight').value);
+            const targetHeight = parseFloat(document.getElementById('targetHeight').value);
+
             // Get Earth radius in meters
             const earthRadius = parseFloat(document.getElementById('earthRadius').value) * 1000;
 
@@ -250,11 +277,12 @@
             // Calculate distances and vertical angle
             const dx = target.x - station.x;
             const dy = target.y - station.y;
-            const dz = target.z - station.z;
+            const dz = (target.z + targetHeight) - (station.z + stationHeight); // Add heights to Z coordinates
 
             const horizontalDistance = Math.sqrt(dx * dx + dy * dy);
             const totalDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
             const verticalAngle = Math.atan2(dz, horizontalDistance) * (180 / Math.PI);
+            const zenithAngle = 90 - verticalAngle;
 
             // Calculate mean height above sea level
             const meanHeight = (station.z + target.z) / 2;
@@ -279,9 +307,14 @@
                 Target Azimuth: ${targetAzimuth.toFixed(4)}°<br>
                 Relative Angle: ${relativeAzimuth.toFixed(4)}°<br>
                 Vertical Angle: ${verticalAngle.toFixed(4)}°<br>
+                Zenith Angle: ${zenithAngle.toFixed(4)}°<br>
                 <br>
                 <strong>Heights:</strong><br>
-                Mean Height: ${meanHeight.toFixed(3)} meters<br>
+                Station Ground Height: ${station.z.toFixed(3)} meters<br>
+                Station Instrument Height: ${stationHeight.toFixed(3)} meters<br>
+                Target Ground Height: ${target.z.toFixed(3)} meters<br>
+                Target Prism Height: ${targetHeight.toFixed(3)} meters<br>
+                Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
             `;
         }
     </script>
