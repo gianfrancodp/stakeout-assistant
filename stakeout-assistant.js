@@ -187,7 +187,6 @@ function calculatePolar() {
         Target Azimuth with North: ${targetAzimuth.toFixed(4)}ᵍ<br>
         Relative Azimuth: ${relativeAzimuth.toFixed(4)}ᵍ<br>
         Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
-        Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
         <br>
         <strong>Heights:</strong><br>
         Station Ground Height: ${station.z.toFixed(3)} meters<br>
@@ -197,7 +196,7 @@ function calculatePolar() {
         Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
     `;
     
-    const fieldbookdata = {station, target, relativeAzimuth, verticalAngleGon, totalDistance, targetHeight};
+    const fieldbookdata = {station, target, relativeAzimuth, zenithAngleGon, totalDistance, targetHeight};
 
     //const tableBody = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
     const tbody = document.querySelector('#Field-book-Table tbody');
