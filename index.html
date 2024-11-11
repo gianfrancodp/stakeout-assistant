@@ -166,7 +166,7 @@
             
             const lines = input.trim().split('\n');
             for (const line of lines) {
-                const [name, x, y, z] = line.split(',').map(val => val.trim());
+                const [name, x, y, z, height] = line.split(',').map(val => val.trim());
                 if (name && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
                     points.push({
                         name,
