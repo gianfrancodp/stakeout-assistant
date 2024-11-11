@@ -186,7 +186,6 @@ function calculatePolar() {
         Orientation Azimuth with North: ${orientAzimuth.toFixed(4)}ᵍ<br>
         Target Azimuth with North: ${targetAzimuth.toFixed(4)}ᵍ<br>
         Relative Azimuth: ${relativeAzimuth.toFixed(4)}ᵍ<br>
-        Vertical Angle: ${verticalAngleGon.toFixed(4)}ᵍ<br>
         Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
         <br>
         <strong>Heights:</strong><br>
@@ -197,7 +196,7 @@ function calculatePolar() {
         Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
     `;
     
-    const fieldbookdata = {station, target, relativeAzimuth, verticalAngleGon, totalDistance, targetHeight};
+    const fieldbookdata = {station, target, relativeAzimuth, zenithAngleGon, totalDistance, targetHeight};
 
     //const tableBody = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
     const tbody = document.querySelector('#Field-book-Table tbody');
@@ -207,7 +206,7 @@ function calculatePolar() {
         row.insertCell().textContent = fieldbookdata.station.name;
         row.insertCell().textContent = fieldbookdata.target.name;
         row.insertCell().textContent = fieldbookdata.relativeAzimuth.toFixed(4);
-        row.insertCell().textContent = fieldbookdata.verticalAngleGon.toFixed(4);
+        row.insertCell().textContent = fieldbookdata.zenithAngleGon.toFixed(4);
         row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
         row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
 
