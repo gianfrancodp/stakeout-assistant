@@ -69,20 +69,7 @@ function updateSelects() {
             select.add(option);
         });
     });
-    updateStationHeight();
 }
-
-// function updateStationHeight() {
-//     const input = document.getElementById('pointInput').value;
-//     const lines = input.trim().split('\n');
-//     if (lines.length > 0) {
-//         const firstLine = lines[0];
-//         const [name, x, y, z, height] = firstLine.split(',').map(val => val.trim());
-//         if (height && !isNaN(height)) {
-//             document.getElementById('stationHeight').value = parseFloat(height);
-//         }
-//     }
-// }
 
 function calculateAzimuth(fromPoint, toPoint) {
     const dx = toPoint.x - fromPoint.x;
@@ -182,6 +169,11 @@ function calculatePolar() {
     const result = document.getElementById('polarResult');
     result.innerHTML = `
         <strong>Results:</strong><br>
+        <br>
+        Station: ${station.name}<br>
+        Orient: ${orient.name}<br>
+        Target: ${target.name}<br>
+        <br>
         <strong>Distances:</strong><br>
         Measured Horizontal Distance: ${horizontalDistance.toFixed(3)} meters<br>
         Sea Level Horizontal Distance: ${seaLevelDistance.toFixed(3)} meters<br>
@@ -189,9 +181,9 @@ function calculatePolar() {
         Scale Factor: ${scaleFactor.toFixed(6)}<br>
         <br>
         <strong>Angles:</strong><br>
-        Orientation Azimuth: ${orientAzimuth.toFixed(4)}ᵍ<br>
-        Target Azimuth: ${targetAzimuth.toFixed(4)}ᵍ<br>
-        Relative Angle: ${relativeAzimuthFromZero.toFixed(4)}ᵍ<br>
+        Orientation Azimuth with North: ${orientAzimuth.toFixed(4)}ᵍ<br>
+        Target Azimuth with North: ${targetAzimuth.toFixed(4)}ᵍ<br>
+        Relative Azimuth: ${relativeAzimuthFromZero.toFixed(4)}ᵍ<br>
         Vertical Angle: ${verticalAngleGon.toFixed(4)}ᵍ<br>
         Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
         <br>
@@ -202,4 +194,41 @@ function calculatePolar() {
         Target Prism Height: ${targetHeight.toFixed(3)} meters<br>
         Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
     `;
-}
+    
+    const fieldbookdata = {station, target, targetAzimuth, verticalAngleGon, totalDistance, targetHeight};
+
+    //const tableBody = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
+    const tbody = document.querySelector('#Field-book-Table tbody');
+    // if (tableBody) {
+
+        const row = tbody.insertRow();
+        row.insertCell().textContent = fieldbookdata.station.name;
+        row.insertCell().textContent = fieldbookdata.target.name;
+        row.insertCell().textContent = fieldbookdata.relativeAzimuthFromZero.toFixed(4);
+        row.insertCell().textContent = fieldbookdata.verticalAngleGon.toFixed(4);
+        row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
+        row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
+
+        // const row = tableBody.insertRow();
+
+        // const cell1 = row.insertCell(0);
+        // cell1.textContent = fieldbookdata.station.name;
+        
+
+        // const cell2 = row.insertCell(1);
+        // cell2.textContent = fieldbookdata.target.name;
+
+        // const cell3 = row.insertCell(2);
+        // cell3.textContent = fieldbookdata.targetAzimuth.toFixed(4);
+
+        // const cell4 = row.insertCell(3);
+        // cell4.textContent = fieldbookdata.verticalAngleGon.toFixed(4);
+
+        // const cell5 = row.insertCell(4);
+        // cell5.textContent = fieldbookdata.totalDistance.toFixed(3);
+
+        // const cell6 = row.insertCell(5);
+        // cell6.textContent = fieldbookdata.targetHeight.toFixed(3);
+    // } else {
+    //     console.error('Table body not found');
+  }
