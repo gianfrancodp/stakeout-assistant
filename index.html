@@ -15,8 +15,10 @@
         <h2>Load Points</h2>
         <p>Enter points in CSV format (Name,X,Y,Z,h) or upload a file:</p>
         <p>Example: (use comma as field separator)<br>
-            <code>ST1,1000.000,2000.000,100.000,1.600 <br>
-            ST2,1050.000,2050.000,101.500,1.600</code></p>
+            <code>
+                100,58015.6241,-28942.0209,338.4000,1.35 <br>
+                101,58122.6924,-29031.5002,338.6500,5.00 <br>
+            </code></p>
         <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
         <br><br>
         <input type="file" id="fileInput" accept=".csv,.txt">
@@ -53,13 +55,13 @@
             <select id="targetPoint"></select>
         </div>
 
-        <div class="height-inputs">
+        <!-- <div class="height-inputs">
             <label for="stationHeight">Station Instrument Height (m):</label>
             <input type="number" id="stationHeight" value="1.600" step="0.001">
 
             <label for="targetHeight">Target Prism Height (m):</label>
             <input type="number" id="targetHeight" value="1.600" step="0.001">
-        </div>
+        </div> -->
 
         <div class="info-box">
             <h3>Sea Level Reduction Parameters</h3>
@@ -81,8 +83,28 @@
             </ul>
         </div>
 
-        <button onclick="calculatePolar()">Calculate</button>
+        <button onclick="calculatePolar()">Calculate</button>      
         <div id="polarResult" class="result"></div>
+        <br>
+        <button onclick="add_row_ToFieldBook()">Add row to Field-book</button>
+    </div>
+
+    <div class="container">
+        <h2>Field-book</h2>
+        <h3></h3>
+        <table id="pointsTable">
+            <thead>
+                <tr>
+                    <th>Station</th>
+                    <th>Point</th>
+                    <th>Azimuth</th>
+                    <th>Vertical angle</th>
+                    <th>Distance</th>
+                    <th>Target Height</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script src="stakeout-assistant.js"></script>

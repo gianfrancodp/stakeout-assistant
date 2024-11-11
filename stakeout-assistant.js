@@ -41,6 +41,8 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
     reader.readAsText(file);
 });
 
+// document.getElementById('stationPoint').addEventListener('change', updateStationHeight);
+
 function updateTable() {
     const tbody = document.querySelector('#pointsTable tbody');
     tbody.innerHTML = '';
@@ -67,7 +69,20 @@ function updateSelects() {
             select.add(option);
         });
     });
+    updateStationHeight();
 }
+
+// function updateStationHeight() {
+//     const input = document.getElementById('pointInput').value;
+//     const lines = input.trim().split('\n');
+//     if (lines.length > 0) {
+//         const firstLine = lines[0];
+//         const [name, x, y, z, height] = firstLine.split(',').map(val => val.trim());
+//         if (height && !isNaN(height)) {
+//             document.getElementById('stationHeight').value = parseFloat(height);
+//         }
+//     }
+// }
 
 function calculateAzimuth(fromPoint, toPoint) {
     const dx = toPoint.x - fromPoint.x;
@@ -122,8 +137,11 @@ function calculatePolar() {
     }
 
     // Get instrument and target heights
-    const stationHeight = parseFloat(document.getElementById('stationHeight').value);
-    const targetHeight = parseFloat(document.getElementById('targetHeight').value);
+    // const stationHeight = parseFloat(document.getElementById('stationHeight').value);
+    // const targetHeight = parseFloat(document.getElementById('targetHeight').value);
+    
+    const stationHeight = station.height;
+    const targetHeight = target.height;
 
     // Get Earth radius in meters
     const earthRadius = parseFloat(document.getElementById('earthRadius').value) * 1000;
@@ -171,9 +189,9 @@ function calculatePolar() {
         Scale Factor: ${scaleFactor.toFixed(6)}<br>
         <br>
         <strong>Angles:</strong><br>
-        Orientation Azimuth: ${orientAzimuth.toFixed(4)}°<br>
-        Target Azimuth: ${targetAzimuth.toFixed(4)}°<br>
-        Relative Angle: ${relativeAzimuthFromZero.toFixed(4)}°<br>
+        Orientation Azimuth: ${orientAzimuth.toFixed(4)}ᵍ<br>
+        Target Azimuth: ${targetAzimuth.toFixed(4)}ᵍ<br>
+        Relative Angle: ${relativeAzimuthFromZero.toFixed(4)}ᵍ<br>
         Vertical Angle: ${verticalAngleGon.toFixed(4)}ᵍ<br>
         Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
         <br>
