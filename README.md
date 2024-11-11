@@ -7,6 +7,8 @@ A web-based tool for surveyors to convert between coordinate systems and calcula
 
 ## Features
 
+![flowchart](software_flowchart_v.2.svg)
+
 ### Input Handling
 
 - CSV data import for survey points
