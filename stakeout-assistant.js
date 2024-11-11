@@ -93,9 +93,11 @@ function calculateAzimuth(fromPoint, toPoint) {
 }
 
 function normalizeAngle(angle) {
+    // return ((angle % 400) + 400) % 400;
     while (angle < 0) angle += 400;
     while (angle >= 400) angle -= 400;
     return angle;
+    
 }
 
 function reduceToSeaLevel(distance, meanHeight, earthRadius) {
@@ -141,7 +143,7 @@ function calculatePolar() {
 
     // Calculate relative azimuth
     const relativeAzimuth = normalizeAngle(targetAzimuth - orientAzimuth);
-    const relativeAzimuthFromZero = normalizeAngle(relativeAzimuth - orientAzimuth);
+    // const relativeAzimuthFromZero = normalizeAngle(relativeAzimuth - orientAzimuth);
 
     // Calculate distances and vertical angle
     const dx = target.x - station.x;
@@ -183,7 +185,7 @@ function calculatePolar() {
         <strong>Angles:</strong><br>
         Orientation Azimuth with North: ${orientAzimuth.toFixed(4)}ᵍ<br>
         Target Azimuth with North: ${targetAzimuth.toFixed(4)}ᵍ<br>
-        Relative Azimuth: ${relativeAzimuthFromZero.toFixed(4)}ᵍ<br>
+        Relative Azimuth: ${relativeAzimuth.toFixed(4)}ᵍ<br>
         Vertical Angle: ${verticalAngleGon.toFixed(4)}ᵍ<br>
         Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
         <br>
@@ -195,7 +197,7 @@ function calculatePolar() {
         Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
     `;
     
-    const fieldbookdata = {station, target, targetAzimuth, verticalAngleGon, totalDistance, targetHeight};
+    const fieldbookdata = {station, target, relativeAzimuth, verticalAngleGon, totalDistance, targetHeight};
 
     //const tableBody = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
     const tbody = document.querySelector('#Field-book-Table tbody');
@@ -204,7 +206,7 @@ function calculatePolar() {
         const row = tbody.insertRow();
         row.insertCell().textContent = fieldbookdata.station.name;
         row.insertCell().textContent = fieldbookdata.target.name;
-        row.insertCell().textContent = fieldbookdata.relativeAzimuthFromZero.toFixed(4);
+        row.insertCell().textContent = fieldbookdata.relativeAzimuth.toFixed(4);
         row.insertCell().textContent = fieldbookdata.verticalAngleGon.toFixed(4);
         row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
         row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
