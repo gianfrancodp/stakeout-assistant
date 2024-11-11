@@ -1,6 +1,8 @@
 # stakeout-assistant
 a simple Javascript project to convert from cartesian to polar coordinates in topographical surveys
 
+Live version [https://gianfrancodp.github.io/stakeout-assistant/](https://gianfrancodp.github.io/stakeout-assistant/)
+
 # Survey Coordinate Converter
 
 A web-based tool for surveyors to convert between coordinate systems and calculate polar coordinates with instrument and target height considerations. Built for *total station* surveying applications.
