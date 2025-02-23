@@ -10,6 +10,7 @@ body {
     border-radius: 8px;
     margin-bottom: 20px;
 }
+
 .button {
     background-color: #4CAF50; /* Verde */
     border: none;
@@ -40,11 +41,20 @@ th {
 tr:nth-child(even) {
     background-color: #f2f2f2;
 }
+
+/*Frist colum header*/
+th:first-child {
+    background-color: #ff0000; /* Giallo */
+    font-weight: bold;
+    text-align: center;
+}
+
 .result {
     background-color: #e8f5e9;
     padding: 15px;
     border-radius: 4px;
     margin-top: 10px;
+    font-size: 8pt;
 }
 .point-selection {
     display: grid;
@@ -78,4 +88,21 @@ select, input[type="number"] {
     padding: 10px;
     border-radius: 4px;
     margin: 10px 0;
+}
+
+.calculate-button {
+    background-color: #3440c9; /* Verde */
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 10px 0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.calculate-button:hover {
+    background-color: #3440c9;
 }

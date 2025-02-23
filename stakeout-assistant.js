@@ -197,39 +197,39 @@ function calculatePolar() {
     `;
     
     const fieldbookdata = {station, target, relativeAzimuth, zenithAngleGon, totalDistance, targetHeight};
-
-    //const tableBody = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
     const tbody = document.querySelector('#Field-book-Table tbody');
-    // if (tableBody) {
+    const row = tbody.insertRow();
 
-        const row = tbody.insertRow();
-        row.insertCell().textContent = fieldbookdata.station.name;
-        row.insertCell().textContent = fieldbookdata.target.name;
-        row.insertCell().textContent = fieldbookdata.relativeAzimuth.toFixed(4);
-        row.insertCell().textContent = fieldbookdata.zenithAngleGon.toFixed(4);
-        row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
-        row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
+    // remove row button
+    const removeButton = document.createElement('button');
+    removeButton.textContent = '-';
+    removeButton.onclick = () => row.remove();
 
-        // const row = tableBody.insertRow();
+    //row.append(removeButton);
+    row.insertCell().append(removeButton);
+    row.insertCell().textContent = fieldbookdata.station.name;
+    row.insertCell().textContent = fieldbookdata.target.name;
+    row.insertCell().textContent = fieldbookdata.relativeAzimuth.toFixed(4);
+    row.insertCell().textContent = fieldbookdata.zenithAngleGon.toFixed(4);
+    row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
+    row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
 
-        // const cell1 = row.insertCell(0);
-        // cell1.textContent = fieldbookdata.station.name;
-        
-
-        // const cell2 = row.insertCell(1);
-        // cell2.textContent = fieldbookdata.target.name;
-
-        // const cell3 = row.insertCell(2);
-        // cell3.textContent = fieldbookdata.targetAzimuth.toFixed(4);
-
-        // const cell4 = row.insertCell(3);
-        // cell4.textContent = fieldbookdata.verticalAngleGon.toFixed(4);
-
-        // const cell5 = row.insertCell(4);
-        // cell5.textContent = fieldbookdata.totalDistance.toFixed(3);
-
-        // const cell6 = row.insertCell(5);
-        // cell6.textContent = fieldbookdata.targetHeight.toFixed(3);
-    // } else {
-    //     console.error('Table body not found');
   }
+
+//   Save to a CSV
+  document.getElementById('downloadFieldbookCSV').addEventListener('click', () => {
+    const table = document.getElementById('Field-book-Table');
+
+    // create CSV and skip the first column with ".slice(1)" method beacuse it is the remove button element
+    const csv = Array.from(table.rows).map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent).join(',')).join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fieldbook.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  );
+

@@ -68,14 +68,6 @@
             <select id="targetPoint"></select>
         </div>
 
-        <!-- <div class="height-inputs">
-            <label for="stationHeight">Station Instrument Height (m):</label>
-            <input type="number" id="stationHeight" value="1.600" step="0.001">
-
-            <label for="targetHeight">Target Prism Height (m):</label>
-            <input type="number" id="targetHeight" value="1.600" step="0.001">
-        </div> -->
-
         <div class="info-box">
             <h3>Sea Level Reduction Parameters</h3>
             <div class="point-selection">
@@ -96,10 +88,9 @@
             </ul>
         </div>
 
-        <button onclick="calculatePolar()">Calculate</button>      
+        <button class="calculate-button" onclick="calculatePolar()">Calculate and add row to Fieldbook</button>      
         <div id="polarResult" class="result"></div>
         <br>
-        <!-- <button onclick="run_fieldbook()">Add row to Field-book</button> -->
     </div>
 
     <div class="container">
@@ -108,6 +99,7 @@
         <table id="Field-book-Table">
             <thead>
                 <tr>
+                    <th>-</th>
                     <th>Station</th>
                     <th>Point</th>
                     <th>Azimuth</th>
@@ -118,6 +110,7 @@
             </thead>
             <tbody></tbody>
         </table>
+        <button id="downloadFieldbookCSV">Download Field-book CSV</button>
     </div>
 
     <script src="stakeout-assistant.js"></script>
