@@ -8,6 +8,8 @@ const GON_TO_DEG = 360/400;  // Conversion factor from gon/centesimal to degrees
 const PI = Math.PI;
 
 function loadPoints() {
+    clearFileWarning();
+    
     const input = document.getElementById('pointInput').value;
     points = [];
 
@@ -29,13 +31,38 @@ function loadPoints() {
     updateSelects();
 }
 
+function showFileWarning(message) {
+    const warning = document.getElementById('fileWarning');
+    warning.textContent = message;
+    warning.classList.remove('hidden');
+}
+
+function clearFileWarning() {
+    const warning = document.getElementById('fileWarning');
+    warning.textContent = '';
+    warning.classList.add('hidden');
+}
+
 document.getElementById('fileInput').addEventListener('change', (event) => {
     const file = event.target.files[0];
+    if (!file) {
+        clearFileWarning();
+        return;
+    }
+
+    const isXmlFile = file.type === 'text/xml' || file.name.toLowerCase().endsWith('.xml');
     const reader = new FileReader();
 
     reader.onload = (e) => {
-        document.getElementById('pointInput').value = e.target.result;
+        const content = e.target.result;
+        document.getElementById('pointInput').value = content;
         loadPoints();
+
+        if (isXmlFile || content.trim().startsWith('<?xml')) {
+            showFileWarning('Warning: XML file detected. The content is loaded as text, but XML is not a native CSV format.');
+        } else {
+            clearFileWarning();
+        }
     };
 
     reader.readAsText(file);

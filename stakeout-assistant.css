@@ -90,6 +90,19 @@ select, input[type="number"] {
     margin: 10px 0;
 }
 
+.warning {
+    background-color: #fff4e5;
+    border: 1px solid #ffa726;
+    color: #663c00;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
 .calculate-button {
     background-color: #3440c9; /* Verde */
     border: none;

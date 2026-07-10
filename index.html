@@ -34,7 +34,8 @@
             </code></p>
         <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
         <br><br>
-        <input type="file" id="fileInput" accept=".csv,.txt">
+        <input type="file" id="fileInput" accept=".csv,.txt,.xml">
+        <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
         <br><br>
         <button onclick="loadPoints()">Load Points</button>
     </div>
