@@ -21,7 +21,7 @@
 
     <h2>Survey Coordinate Converter</h2>
     <p>This tool helps you convert survey coordinates to polar coordinates for stakeout.</p>
-    
+
     <img src="software_flowchart_v.2.svg" alt="Stakeout Assistant" style="width: 100%; max-width: 600px; margin: 20px auto; display: block; background-color: #323232;">
 
     <div class="container">
@@ -37,7 +37,7 @@
         <input type="file" id="fileInput" accept=".csv,.txt,.xml">
         <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
         <br><br>
-        <button onclick="loadPoints()">Load Points</button>
+        <button id="loadPoints">Load Points</button>
     </div>
 
     <div class="container">
@@ -89,7 +89,7 @@
             </ul>
         </div>
 
-        <button class="calculate-button" onclick="calculatePolar()">Calculate and add row to Fieldbook</button>      
+        <button class="calculate-button" id="calculatePolar">Calculate and add row to Fieldbook</button>
         <div id="polarResult" class="result"></div>
         <br>
     </div>
@@ -114,6 +114,6 @@
         <button id="downloadFieldbookCSV">Download Field-book CSV</button>
     </div>
 
-    <script src="stakeout-assistant.js"></script>
+    <script type="module" src="stakeout-assistant.js"></script>
 </body>
 </html>
