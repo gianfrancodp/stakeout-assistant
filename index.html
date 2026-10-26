@@ -1,119 +1,238 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stakeout assistant</title>
-    <link href="stakeout-assistant.css" rel="stylesheet">
-    <meta property="og:title" content="Stakeout Survey assistant: Polar Coordinate Converter">
-    <meta property="og:description" content="This tool helps you convert survey coordinates to polar coordinates for stakeout.">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Prepara il tracciamento da coordinate cartesiane: importa CSV e calcola direzioni, zenit e distanze con altezze strumento e prisma separate.">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>Stakeout Assistant · Tracciamento</title>
+    <link rel="stylesheet" href="stakeout-assistant.css">
+    <meta property="og:title" content="Stakeout Assistant">
+    <meta property="og:description" content="Converti coordinate cartesiane in un libretto di tracciamento.">
     <meta property="og:image" content="IMG_2334.jpeg">
     <meta property="og:url" content="https://gianfrancodp.github.io/stakeout-assistant/">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Survey Coordinate Converter">
-    <meta name="twitter:description" content="This tool helps you convert survey coordinates to polar coordinates for stakeout.">
-    <meta name="twitter:image" content="stakeout_assistant_logo_v.1.svg">
-
 </head>
 <body>
-    <img src="stakeout_assistant_logo_v.1.svg" alt="Stakeout Assistant" style="width: 100px; margin: 20px auto; display: block;">
-    <h1>Stakeout Assistant</h1>
-
-    <h2>Survey Coordinate Converter</h2>
-    <p>This tool helps you convert survey coordinates to polar coordinates for stakeout.</p>
-    
-    <img src="software_flowchart_v.2.svg" alt="Stakeout Assistant" style="width: 100%; max-width: 600px; margin: 20px auto; display: block; background-color: #323232;">
-
-    <div class="container">
-        <h2>Load Points</h2>
-        <p>Enter points in CSV format (Name,X,Y,Z,h) or upload a file:</p>
-        <p>Example: (use comma as field separator)<br>
-            <code>
-                100,58015.6241,-28942.0209,338.4000,1.35 <br>
-                101,58122.6924,-29031.5002,338.6500,5.00 <br>
-            </code></p>
-        <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
-        <br><br>
-        <input type="file" id="fileInput" accept=".csv,.txt,.xml">
-        <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
-        <br><br>
-        <button onclick="loadPoints()">Load Points</button>
-    </div>
-
-    <div class="container">
-        <h2>Points List</h2>
-        <table id="pointsTable">
-            <thead>
-                <tr>
-                    <th>Point Name</th>
-                    <th>X</th>
-                    <th>Y</th>
-                    <th>Z</th>
-                    <th>Instrument/Target Height</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="container">
-        <h2>Convert to Polar Coordinates</h2>
-        <div class="point-selection">
-            <label for="stationPoint">Station Point:</label>
-            <select id="stationPoint"></select>
-
-            <label for="orientPoint">Orientation Point:</label>
-            <select id="orientPoint"></select>
-
-            <label for="targetPoint">Target Point:</label>
-            <select id="targetPoint"></select>
-        </div>
-
-        <div class="info-box">
-            <h3>Sea Level Reduction Parameters</h3>
-            <div class="point-selection">
-                <label for="earthRadius">Earth Radius (km):</label>
-                <input type="number" id="earthRadius" value="6371" step="0.001">
+<header class="app-header">
+    <a href="#top" class="brand">
+<img src="stakeout_assistant_logo_v.1.svg" alt="" width="54" height="44">
+<span>Stakeout <strong>Assistant</strong>
+<small>TACCUINO DI TRACCIAMENTO</small>
+</span>
+</a>
+    <div class="header-meta">
+<span class="local-dot">
+</span> Calcolo nel browser <span class="phase-badge">FASE 01</span>
+</div>
+</header>
+<main id="top">
+    <div class="page-heading">
+<div>
+<div class="eyebrow">CARTESIANE → POLARI</div>
+<h1>Preparazione del tracciamento</h1>
+<p>Carica i punti, imposta la stazione e prepara il libretto di campagna.</p>
+</div>
+<button id="loadExample" class="button secondary">Carica esempio</button>
+</div>
+    <div id="message" class="message" role="status" aria-live="polite" hidden>
+</div>
+    <section class="project-strip" aria-label="Stato del progetto">
+<div>
+<span>PROGETTO</span>
+<strong id="projectName">Esempio sintetico</strong>
+</div>
+<div>
+<span>PUNTI</span>
+<strong id="pointCount">0</strong>
+</div>
+<div>
+<span>BATTUTE</span>
+<strong id="shotCount">0</strong>
+</div>
+<div>
+<span>RIFERIMENTO</span>
+<strong>Locale · E / N / Z</strong>
+</div>
+<div class="revision-block">
+<span>SORGENTE</span>
+<strong id="revision">Revisione 0</strong>
+</div>
+</section>
+    <div class="work-grid">
+        <section class="card import-card" aria-labelledby="importTitle">
+            <div class="card-heading">
+<span class="step">01</span>
+<div>
+<h2 id="importTitle">Punti del progetto</h2>
+<p>X = Est · Y = Nord · Z = quota · valori in metri</p>
+</div>
+<span id="sourceBadge" class="badge">CSV</span>
+</div>
+            <div class="card-content">
+                <label for="pointInput" class="field-label">CSV <span>Name,X,Y,Z,h</span>
+</label>
+                <textarea id="pointInput" rows="6" spellcheck="false" aria-describedby="csvHelp">
+</textarea>
+                <p class="help" id="csvHelp">Virgola tra i campi e punto decimale. La quinta colonna h è facoltativa e propone le altezze iniziali, modificabili nella configurazione.</p>
+                <div class="import-actions">
+<button class="button primary" id="loadPoints">Importa punti</button>
+<button class="button secondary" id="chooseFile">↥ Apri CSV / TXT</button>
+<input type="file" id="fileInput" accept=".csv,.txt,text/csv,text/plain" hidden>
+</div>
             </div>
-        </div>
-
-        <div class="diagram">
-            <strong>Measurement Information:</strong>
-            <ul>
-                <li>Station Point: Where you set up your instrument</li>
-                <li>Orientation Point: Reference for 0° azimuth</li>
-                <li>Target Point: The point you want to measure to</li>
-                <li>Instrument Height: Height of total station above the ground point</li>
-                <li>Target Height: Height of prism/reflector above the ground point</li>
-                <li>Sea Level Reduction: Corrects horizontal distances based on altitude</li>
-            </ul>
-        </div>
-
-        <button class="calculate-button" onclick="calculatePolar()">Calculate and add row to Fieldbook</button>      
-        <div id="polarResult" class="result"></div>
-        <br>
+            <div class="section-divider">
+<h3>Coordinate caricate</h3>
+<span id="loadedLabel">Nessun punto</span>
+</div>
+            <div class="table-wrap points-wrap">
+<table id="pointsTable">
+<thead>
+<tr>
+<th>PUNTO</th>
+<th>EST · X</th>
+<th>NORD · Y</th>
+<th>QUOTA · Z</th>
+<th>h DEFAULT</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+</div>
+            <div class="card-foot">
+<span id="inputState">Dati in memoria</span>
+<span>Precisione completa nel calcolo</span>
+</div>
+        </section>
+        <section class="card setup-card" aria-labelledby="setupTitle">
+            <div class="card-heading">
+<span class="step">02</span>
+<div>
+<h2 id="setupTitle">Configurazione della battuta</h2>
+<p>Le altezze sono riferite ai punti a terra.</p>
+</div>
+</div>
+            <div class="card-content setup-content">
+                <label class="field-label" for="stationPoint">Stazione <span>POSIZIONE STRUMENTO</span>
+</label>
+<select id="stationPoint">
+</select>
+                <div class="selection-pair">
+<div>
+<label class="field-label" for="orientPoint">Orientamento</label>
+<select id="orientPoint">
+</select>
+</div>
+<div>
+<label class="field-label" for="targetPoint">Bersaglio</label>
+<select id="targetPoint">
+</select>
+</div>
+</div>
+                <div class="height-pair">
+<div>
+<label class="field-label" for="stationHeight">Altezza strumento <span>m</span>
+</label>
+<input type="number" id="stationHeight" min="0" step="any" inputmode="decimal" value="1.6">
+</div>
+<div>
+<label class="field-label" for="targetHeight">Altezza prisma / bersaglio <span>m</span>
+</label>
+<input type="number" id="targetHeight" min="0" step="any" inputmode="decimal" value="1.8">
+</div>
+</div>
+                <p class="help height-help">Le modifiche valgono per questa battuta. Le coordinate a terra rimangono invariate.</p>
+                <details class="distance-settings">
+<summary>Parametri di riduzione al mare <span>solo confronto</span>
+</summary>
+<div>
+<label class="field-label" for="earthRadius">Raggio terrestre <span>km</span>
+</label>
+<input type="number" id="earthRadius" min="0" step="any" value="6371">
+<p class="help">Il libretto usa sempre la distanza inclinata. La distanza orizzontale ridotta è mostrata separatamente.</p>
+</div>
+</details>
+                <button class="button primary calculate-button" id="calculatePolar">Calcola e aggiungi al libretto <span>↗</span>
+</button>
+            </div>
+        </section>
     </div>
-
-    <div class="container">
-        <h2>Field-book</h2>
-        <h3></h3>
-        <table id="Field-book-Table">
-            <thead>
-                <tr>
-                    <th>-</th>
-                    <th>Station</th>
-                    <th>Point</th>
-                    <th>Azimuth</th>
-                    <th>Zenith</th>
-                    <th>Distance</th>
-                    <th>Target Height</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <button id="downloadFieldbookCSV">Download Field-book CSV</button>
-    </div>
-
-    <script src="stakeout-assistant.js"></script>
+    <section class="result-panel" aria-label="Risultato della battuta">
+<div class="result-intro">
+<div class="eyebrow" id="resultContext">PRONTO AL CALCOLO</div>
+<h2 id="resultTitle">Imposta la battuta</h2>
+<p id="resultDescription">Seleziona stazione, orientamento e bersaglio.</p>
+</div>
+<div class="result-values">
+<div>
+<span>DIREZIONE Hz</span>
+<strong id="resultHz">—</strong>
+<small>gon · rispetto all’orientamento</small>
+</div>
+<div>
+<span>ANGOLO ZENITALE</span>
+<strong id="resultZenith">—</strong>
+<small>gon · 100 all’orizzonte</small>
+</div>
+<div>
+<span>DISTANZA INCLINATA</span>
+<strong id="resultDistance">—</strong>
+<small>metri · strumento → bersaglio</small>
+</div>
+</div>
+<div class="result-details" id="resultDetails" hidden>
+</div>
+</section>
+    <section class="card fieldbook-card" aria-labelledby="fieldbookTitle">
+<div class="card-heading">
+<span class="step">03</span>
+<div>
+<h2 id="fieldbookTitle">Libretto di tracciamento <span id="bookCount" class="count">0</span>
+</h2>
+<p>Ogni battuta conserva punti, altezze e revisione utilizzati.</p>
+</div>
+<button id="downloadFieldbookCSV" class="button secondary" disabled>↓ Esporta CSV</button>
+</div>
+<div class="table-wrap">
+<table id="Field-book-Table">
+<thead>
+<tr>
+<th>N.</th>
+<th>STAZIONE</th>
+<th>BERSAGLIO</th>
+<th>Hz · gon</th>
+<th>ZENIT · gon</th>
+<th>D INCL. · m</th>
+<th>h STRUM. · m</th>
+<th>h BERS. · m</th>
+<th>SORGENTE</th>
+<th>
+<span class="sr-only">Rimuovi</span>
+</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+</div>
+<div id="bookEmpty" class="empty-state">
+<span>⌖</span>
+<div>
+<strong>Il libretto è pronto per la prima battuta.</strong>
+<p>Premi «Calcola e aggiungi al libretto» per iniziare.</p>
+</div>
+</div>
+<div class="card-foot">
+<span>CSV dai dati numerici, senza arrotondamenti di visualizzazione</span>
+<span>Dati in memoria fino alla chiusura della pagina</span>
+</div>
+</section>
+    <footer>
+<span>Stakeout Assistant · Fase 1 del piano di upgrade</span>
+<a href="#top">Torna all’inizio ↑</a>
+</footer>
+</main>
+<script type="module" src="stakeout-assistant.js">
+</script>
 </body>
 </html>

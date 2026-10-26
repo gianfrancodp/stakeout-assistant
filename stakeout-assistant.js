@@ -1,262 +1,176 @@
+import { createProject, importCsvProject, defaultPointHeight, appendStakeout, removeFieldbookEntry, validateConfigurationNumber } from './src/model.mjs';
+import { kilometresToMetres, radiansToGon } from './src/core/units.mjs';
+import { fieldbookToCsv, CsvValidationError } from './src/io/csv.mjs';
 
-let points = [];
-    
-// Constants
-const DEFAULT_EARTH_RADIUS = 6371000; // meters
-const DEG_TO_GON = 400/360;  // Conversion factor from degrees to gon/centesimal
-const GON_TO_DEG = 360/400;  // Conversion factor from gon/centesimal to degrees
-const PI = Math.PI;
-
-function loadPoints() {
-    clearFileWarning();
-    
-    const input = document.getElementById('pointInput').value;
-    points = [];
-
-    const lines = input.trim().split('\n');
-    for (const line of lines) {
-        const [name, x, y, z, height] = line.split(',').map(val => val.trim());
-        if (name && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
-            points.push({
-                name,
-                x: parseFloat(x),
-                y: parseFloat(y),
-                z: parseFloat(z),
-                height: height ? parseFloat(height) : 0
-            });
-        }
+const element = id => document.getElementById(id);
+const DEMO = 'Name,X,Y,Z,h\nST1,1000.000,2000.000,100.000,1.600\nOR1,1000.000,2050.000,100.000,1.600\nP1,1035.000,2045.000,101.200,1.800\nP2,1072.000,2012.000,99.400,1.500\nP3,980.000,2028.000,102.300,1.800';
+let project = createProject();
+let latestEntry = null;
+let readSequence = 0;
+const fixed = (value, digits = 3) => Number.isFinite(value) ? value.toFixed(digits) : '—';
+function textCell(row, value, className = '') {
+    const cell = row.insertCell(); cell.textContent = value; if (className) cell.className = className; return cell;
+}
+function showMessage(text, error = false) {
+    const box = element('message'); box.textContent = text; box.className = error ? 'message error' : 'message';
+    box.setAttribute('role', error ? 'alert' : 'status'); box.hidden = false;
+}
+function clearMessage() { element('message').hidden = true; }
+function reportError(error, prefix = '') {
+    const detail = error instanceof CsvValidationError
+        ? error.issues.slice(0, 8).map(issue => `Riga ${issue.line}: ${issue.message}`).join('\n') + (error.issues.length > 8 ? `\nAltri ${error.issues.length - 8} problemi nel file.` : '')
+        : error.message;
+    showMessage(prefix + detail, true);
+}
+function renderProject() {
+    element('projectName').textContent = project.name;
+    element('pointCount').textContent = project.sourcePoints.length;
+    element('shotCount').textContent = project.fieldbook.length;
+    element('revision').textContent = `Revisione ${project.revision}`;
+    element('loadedLabel').textContent = `${project.sourcePoints.length} punti · revisione ${project.revision}`;
+    element('sourceBadge').textContent = project.name === 'Esempio sintetico' ? 'ESEMPIO' : 'CSV';
+    element('inputState').textContent = 'Dati caricati in memoria';
+    const body = element('pointsTable').tBodies[0]; body.replaceChildren();
+    for (const point of project.sourcePoints) {
+        const row = body.insertRow(); textCell(row, point.name);
+        for (const axis of ['e', 'n', 'z']) textCell(row, fixed(point[axis]), 'number');
+        textCell(row, fixed(defaultPointHeight(project, point.id, 'target')), 'number');
     }
-
-    updateTable();
-    updateSelects();
-}
-
-function showFileWarning(message) {
-    const warning = document.getElementById('fileWarning');
-    warning.textContent = message;
-    warning.classList.remove('hidden');
-}
-
-function clearFileWarning() {
-    const warning = document.getElementById('fileWarning');
-    warning.textContent = '';
-    warning.classList.add('hidden');
-}
-
-document.getElementById('fileInput').addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (!file) {
-        clearFileWarning();
-        return;
+    for (const id of ['stationPoint', 'orientPoint', 'targetPoint']) {
+        const select = element(id); select.replaceChildren();
+        for (const point of project.sourcePoints) select.add(new Option(point.name, point.id));
+        select.disabled = !project.sourcePoints.length;
     }
-
-    const isXmlFile = file.type === 'text/xml' || file.name.toLowerCase().endsWith('.xml');
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-        const content = e.target.result;
-        document.getElementById('pointInput').value = content;
-        loadPoints();
-
-        if (isXmlFile || content.trim().startsWith('<?xml')) {
-            showFileWarning('Warning: XML file detected. The content is loaded as text, but XML is not a native CSV format.');
-        } else {
-            clearFileWarning();
-        }
-    };
-
-    reader.readAsText(file);
+    const ids = project.sourcePoints.map(point => point.id);
+    if (ids.length) {
+        element('stationPoint').value = ids[0];
+        element('orientPoint').value = ids[1] || ids[0];
+        element('targetPoint').value = ids[2] || ids[1] || ids[0];
+        updateHeight('station'); updateHeight('target');
+    }
+    element('calculatePolar').disabled = !project.sourcePoints.length;
+    renderFieldbook(); resetResult();
+}
+function loadCsv(text, fileName, name = fileName) {
+    // Parsing and validation finish before the active project or point table changes.
+    const nextProject = importCsvProject(project, text, fileName);
+    const previousRows = nextProject.fieldbook.length;
+    project = { ...nextProject, name };
+    element('pointInput').value = text;
+    for (const input of document.querySelectorAll('[aria-invalid]')) input.removeAttribute('aria-invalid');
+    renderProject();
+    showMessage(`${project.sourcePoints.length} punti importati. X = Est, Y = Nord; quote e altezze in metri.${previousRows ? '\nLe battute già calcolate conservano i dati precedenti e sono marcate nel libretto.' : ''}`);
+}
+function updateHeight(role) {
+    if (!project.sourcePoints.length) return;
+    const pointId = element(role === 'station' ? 'stationPoint' : 'targetPoint').value;
+    element(role === 'station' ? 'stationHeight' : 'targetHeight').value = String(defaultPointHeight(project, pointId, role === 'station' ? 'instrument' : 'target'));
+}
+function resetResult() {
+    latestEntry = null;
+    for (const row of element('Field-book-Table').querySelectorAll('tr.selected')) row.classList.remove('selected');
+    element('resultContext').textContent = 'PRONTO AL CALCOLO';
+    element('resultTitle').textContent = 'Imposta la battuta';
+    element('resultDescription').textContent = 'Seleziona stazione, orientamento e bersaglio.';
+    for (const id of ['resultHz', 'resultZenith', 'resultDistance']) element(id).textContent = '—';
+    element('resultDetails').hidden = true;
+}
+function renderResult(entry) {
+    const result = entry.result; latestEntry = entry;
+    element('resultContext').textContent = entry.sourceRevision === project.revision ? `BATTUTA CALCOLATA · REV. ${entry.sourceRevision}` : `DATI PRECEDENTI · REV. ${entry.sourceRevision}`;
+    element('resultTitle').textContent = `${entry.station.name} → ${entry.target.name}`;
+    element('resultDescription').textContent = `Orientamento ${entry.orientation.name} · hi ${fixed(result.instrumentHeight)} m · ht ${fixed(result.targetHeight)} m`;
+    element('resultHz').textContent = fixed(radiansToGon(result.relativeAzimuth), 4);
+    element('resultZenith').textContent = fixed(radiansToGon(result.zenithAngle), 4);
+    element('resultDistance').textContent = fixed(result.slopeDistance);
+    const details = element('resultDetails'); details.replaceChildren();
+    for (const [label, value] of [
+        ['Distanza orizzontale', `${fixed(result.horizontalDistance)} m`],
+        ['Dislivello strumento → bersaglio', `${fixed(result.verticalDifference)} m`],
+        ['Orizzontale ridotta al mare', `${fixed(result.seaLevelHorizontalDistance)} m`],
+        ['Fattore di riduzione', fixed(result.seaLevelScaleFactor, 8)]
+    ]) {
+        const item = document.createElement('span'); item.textContent = label;
+        const number = document.createElement('strong'); number.textContent = value; item.append(number); details.append(item);
+    }
+    details.hidden = false; renderFieldbook();
+}
+function renderFieldbook() {
+    const body = element('Field-book-Table').tBodies[0]; body.replaceChildren();
+    for (const [index, entry] of project.fieldbook.entries()) {
+        const row = body.insertRow(); if (entry.id === latestEntry?.id) row.className = 'selected';
+        textCell(row, index + 1, 'number'); textCell(row, entry.station.name);
+        const targetCell = row.insertCell(), targetButton = document.createElement('button');
+        targetButton.type = 'button'; targetButton.className = 'point-button'; targetButton.textContent = entry.target.name;
+        targetButton.setAttribute('aria-label', `Mostra battuta ${index + 1}, bersaglio ${entry.target.name}`);
+        targetButton.addEventListener('click', () => renderResult(entry)); targetCell.append(targetButton);
+        for (const value of [fixed(radiansToGon(entry.result.relativeAzimuth), 4), fixed(radiansToGon(entry.result.zenithAngle), 4),
+            fixed(entry.result.slopeDistance), fixed(entry.result.instrumentHeight), fixed(entry.result.targetHeight)]) textCell(row, value, 'number');
+        const statusCell = row.insertCell(), status = document.createElement('span');
+        status.className = `source-status${entry.sourceRevision === project.revision ? '' : ' stale'}`;
+        status.textContent = entry.sourceRevision === project.revision ? `Rev. ${entry.sourceRevision}` : `Rev. ${entry.sourceRevision} · precedente`;
+        statusCell.append(status);
+        const removeCell = row.insertCell(), remove = document.createElement('button');
+        remove.type = 'button'; remove.className = 'remove-button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Rimuovi battuta ${index + 1}`);
+        remove.addEventListener('click', () => {
+            project = removeFieldbookEntry(project, entry.id);
+            if (latestEntry?.id === entry.id) resetResult();
+            renderFieldbook(); clearMessage();
+        }); removeCell.append(remove);
+    }
+    element('bookEmpty').hidden = !!project.fieldbook.length;
+    element('bookCount').textContent = project.fieldbook.length;
+    element('shotCount').textContent = project.fieldbook.length;
+    element('downloadFieldbookCSV').disabled = !project.fieldbook.length;
+}
+function readNumber(id, label, positive = false) {
+    const input = element(id); input.removeAttribute('aria-invalid');
+    try { return validateConfigurationNumber(input.value, label, { positive }); }
+    catch (error) { input.setAttribute('aria-invalid', 'true'); throw error; }
+}
+function calculate() {
+    try {
+        const selection = { stationId: element('stationPoint').value, orientationId: element('orientPoint').value, targetId: element('targetPoint').value,
+            instrumentHeight: readNumber('stationHeight', 'Altezza strumento'), targetHeight: readNumber('targetHeight', 'Altezza bersaglio'),
+            earthRadius: kilometresToMetres(readNumber('earthRadius', 'Raggio terrestre', true)) };
+        const added = appendStakeout(project, selection); project = added.project;
+        clearMessage(); renderResult(added.entry);
+    } catch (error) { reportError(error, 'Battuta non aggiunta. '); }
+}
+function loadExample() {
+    readSequence++;
+    try { loadCsv(DEMO, 'esempio.csv', 'Esempio sintetico'); }
+    catch (error) { reportError(error); }
+}
+element('loadExample').addEventListener('click', loadExample);
+element('loadPoints').addEventListener('click', () => {
+    readSequence++;
+    try { loadCsv(element('pointInput').value, 'Punti manuali.csv', 'Punti manuali'); }
+    catch (error) { reportError(error, 'Importazione annullata: i punti caricati restano disponibili.\n'); }
 });
-
-// document.getElementById('stationPoint').addEventListener('change', updateStationHeight);
-
-function updateTable() {
-    const tbody = document.querySelector('#pointsTable tbody');
-    tbody.innerHTML = '';
-
-    points.forEach(point => {
-        const row = tbody.insertRow();
-        row.insertCell().textContent = point.name;
-        row.insertCell().textContent = point.x.toFixed(3);
-        row.insertCell().textContent = point.y.toFixed(3);
-        row.insertCell().textContent = point.z.toFixed(3);
-        row.insertCell().textContent = point.height ? point.height.toFixed(3) : "0.000";
-    });
-}
-
-function updateSelects() {
-    const stationSelect = document.getElementById('stationPoint');
-    const orientSelect = document.getElementById('orientPoint');
-    const targetSelect = document.getElementById('targetPoint');
-
-    [stationSelect, orientSelect, targetSelect].forEach(select => {
-        select.innerHTML = '';
-        points.forEach(point => {
-            const option = new Option(point.name, point.name);
-            select.add(option);
-        });
-    });
-}
-
-function calculateAzimuth(fromPoint, toPoint) {
-    const dx = toPoint.x - fromPoint.x;
-    const dy = toPoint.y - fromPoint.y;
-    // Calculate azimuth in radians from East (0°)
-    let azimuthRad = Math.atan2(dy, dx);
-
-    // Convert to degrees
-    let azimuthDeg = azimuthRad * (180 / PI);
-
-    // Convert to clockwise from North (90°)
-    let azimuthFromNorth = (90 - azimuthDeg);
-
-    // Normalize to 0-360 range
-    if (azimuthFromNorth < 0) azimuthFromNorth += 360;
-
-    // Convert to gon/centesimal
-    let azimuthGon = azimuthFromNorth * DEG_TO_GON;
-
-    return azimuthGon;
-}
-
-function normalizeAngle(angle) {
-    // return ((angle % 400) + 400) % 400;
-    while (angle < 0) angle += 400;
-    while (angle >= 400) angle -= 400;
-    return angle;
-    
-}
-
-function reduceToSeaLevel(distance, meanHeight, earthRadius) {
-    // Riduzione della distanza al livello del mare
-    // Formula: D0 = D * (R / (R + h))
-    // dove:
-    // D0 = distanza ridotta al livello del mare
-    // D = distanza misurata
-    // R = raggio della Terra
-    // h = quota media dei punti
-    return distance * (earthRadius / (earthRadius + meanHeight));
-}
-
-function calculatePolar() {
-    const stationName = document.getElementById('stationPoint').value;
-    const orientName = document.getElementById('orientPoint').value;
-    const targetName = document.getElementById('targetPoint').value;
-
-    const station = points.find(p => p.name === stationName);
-    const orient = points.find(p => p.name === orientName);
-    const target = points.find(p => p.name === targetName);
-
-    if (!station || !orient || !target) {
-        alert('Please select all points');
-        return;
-    }
-
-    // Get instrument and target heights
-    // const stationHeight = parseFloat(document.getElementById('stationHeight').value);
-    // const targetHeight = parseFloat(document.getElementById('targetHeight').value);
-    
-    const stationHeight = station.height;
-    const targetHeight = target.height;
-
-    // Get Earth radius in meters
-    const earthRadius = parseFloat(document.getElementById('earthRadius').value) * 1000;
-
-    // Calculate orientation azimuth
-    const orientAzimuth = calculateAzimuth(station, orient);
-
-    // Calculate target azimuth
-    const targetAzimuth = calculateAzimuth(station, target);
-
-    // Calculate relative azimuth
-    const relativeAzimuth = normalizeAngle(targetAzimuth - orientAzimuth);
-    // const relativeAzimuthFromZero = normalizeAngle(relativeAzimuth - orientAzimuth);
-
-    // Calculate distances and vertical angle
-    const dx = target.x - station.x;
-    const dy = target.y - station.y;
-    const dz = (target.z + targetHeight) - (station.z + stationHeight); // Add heights to Z coordinates
-
-    const horizontalDistance = Math.sqrt(dx * dx + dy * dy);
-    const totalDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    // Calculate vertical angle in centesimal
-    const verticalAngleDeg = Math.atan2(dz, horizontalDistance) * (180 / PI);
-    const verticalAngleGon = verticalAngleDeg * DEG_TO_GON;
-
-    // Calculate zenith angle in centesimal (100g - vertical angle)
-    const zenithAngleGon = 100 - verticalAngleGon;
-
-    // Calculate mean height above sea level
-    const meanHeight = (station.z + target.z) / 2;
-
-    // Reduce horizontal distance to sea level
-    const seaLevelDistance = reduceToSeaLevel(horizontalDistance, meanHeight, earthRadius);
-
-    // Calculate scale factor
-    const scaleFactor = seaLevelDistance / horizontalDistance;
-
-    const result = document.getElementById('polarResult');
-    result.innerHTML = `
-        <strong>Results:</strong><br>
-        <br>
-        Station: ${station.name}<br>
-        Orient: ${orient.name}<br>
-        Target: ${target.name}<br>
-        <br>
-        <strong>Distances:</strong><br>
-        Measured Horizontal Distance: ${horizontalDistance.toFixed(3)} meters<br>
-        Sea Level Horizontal Distance: ${seaLevelDistance.toFixed(3)} meters<br>
-        Total Spatial Distance: ${totalDistance.toFixed(3)} meters<br>
-        Scale Factor: ${scaleFactor.toFixed(6)}<br>
-        <br>
-        <strong>Angles:</strong><br>
-        Orientation Azimuth with North: ${orientAzimuth.toFixed(4)}ᵍ<br>
-        Target Azimuth with North: ${targetAzimuth.toFixed(4)}ᵍ<br>
-        Relative Azimuth: ${relativeAzimuth.toFixed(4)}ᵍ<br>
-        Zenith Angle: ${zenithAngleGon.toFixed(4)}ᵍ<br>
-        <br>
-        <strong>Heights:</strong><br>
-        Station Ground Height: ${station.z.toFixed(3)} meters<br>
-        Station Instrument Height: ${stationHeight.toFixed(3)} meters<br>
-        Target Ground Height: ${target.z.toFixed(3)} meters<br>
-        Target Prism Height: ${targetHeight.toFixed(3)} meters<br>
-        Mean Ground Height: ${meanHeight.toFixed(3)} meters<br>
-    `;
-    
-    const fieldbookdata = {station, target, relativeAzimuth, zenithAngleGon, totalDistance, targetHeight};
-    const tbody = document.querySelector('#Field-book-Table tbody');
-    const row = tbody.insertRow();
-
-    // remove row button
-    const removeButton = document.createElement('button');
-    removeButton.textContent = '-';
-    removeButton.onclick = () => row.remove();
-
-    //row.append(removeButton);
-    row.insertCell().append(removeButton);
-    row.insertCell().textContent = fieldbookdata.station.name;
-    row.insertCell().textContent = fieldbookdata.target.name;
-    row.insertCell().textContent = fieldbookdata.relativeAzimuth.toFixed(4);
-    row.insertCell().textContent = fieldbookdata.zenithAngleGon.toFixed(4);
-    row.insertCell().textContent = fieldbookdata.totalDistance.toFixed(3);
-    row.insertCell().textContent = fieldbookdata.targetHeight.toFixed(3);
-
-  }
-
-//   Save to a CSV
-  document.getElementById('downloadFieldbookCSV').addEventListener('click', () => {
-    const table = document.getElementById('Field-book-Table');
-
-    // create CSV and skip the first column with ".slice(1)" method beacuse it is the remove button element
-    const csv = Array.from(table.rows).map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent).join(',')).join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'fieldbook.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  );
-
+element('pointInput').addEventListener('input', () => { readSequence++; element('inputState').textContent = 'CSV modificato · premi Importa punti'; });
+element('chooseFile').addEventListener('click', () => element('fileInput').click());
+element('fileInput').addEventListener('change', async event => {
+    const file = event.target.files[0], sequence = ++readSequence;
+    if (!file) return;
+    try {
+        if (file.size > 10 * 1024 * 1024) throw new RangeError('Dimensione massima CSV: 10 MB.');
+        const text = await file.text(); if (sequence !== readSequence) return;
+        if (file.name.toLowerCase().endsWith('.xml')) throw new RangeError('LandXML non disponibile nella fase 1. Importare un CSV Name,X,Y,Z,h.');
+        loadCsv(text, file.name);
+    } catch (error) { if (sequence === readSequence) reportError(error, 'Importazione annullata: i punti caricati restano disponibili.\n'); }
+    finally { event.target.value = ''; }
+});
+element('stationPoint').addEventListener('change', () => { updateHeight('station'); resetResult(); });
+element('targetPoint').addEventListener('change', () => { updateHeight('target'); resetResult(); });
+element('orientPoint').addEventListener('change', resetResult);
+for (const id of ['stationHeight', 'targetHeight', 'earthRadius']) element(id).addEventListener('input', () => { element(id).removeAttribute('aria-invalid'); resetResult(); });
+element('calculatePolar').addEventListener('click', calculate);
+element('downloadFieldbookCSV').addEventListener('click', () => {
+    try {
+        const url = URL.createObjectURL(new Blob([fieldbookToCsv(project.fieldbook, project.revision)], { type: 'text/csv;charset=utf-8' }));
+        const link = document.createElement('a'); link.href = url; link.download = 'fieldbook.csv'; document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (error) { reportError(error); }
+});
+loadExample(); clearMessage();
