@@ -3,22 +3,22 @@ export const FULL_CIRCLE = 2 * Math.PI;
 export const DEFAULT_EARTH_RADIUS = 6371000;
 export function requireFinite(value, label) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
-        throw new TypeError(`${label}: inserire un numero finito.`);
+        throw new TypeError(`${label}: enter a finite number.`);
     }
     return value;
 }
 export function normalizeAngle(angle) {
-    requireFinite(angle, 'Angolo');
+    requireFinite(angle, 'Angle');
     const normalized = ((angle % FULL_CIRCLE) + FULL_CIRCLE) % FULL_CIRCLE;
     return normalized === 0 ? 0 : normalized;
 }
 export function radiansToGon(radians) {
-    return requireFinite(radians, 'Angolo') * 200 / Math.PI;
+    return requireFinite(radians, 'Angle') * 200 / Math.PI;
 }
 export function gonToRadians(gon) {
-    return requireFinite(gon, 'Angolo') * Math.PI / 200;
+    return requireFinite(gon, 'Angle') * Math.PI / 200;
 }
 export function kilometresToMetres(kilometres) {
-    const metres = requireFinite(kilometres, 'Raggio terrestre') * 1000;
-    return requireFinite(metres, 'Raggio terrestre');
+    const metres = requireFinite(kilometres, 'Earth radius') * 1000;
+    return requireFinite(metres, 'Earth radius');
 }

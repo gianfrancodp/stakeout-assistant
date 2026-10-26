@@ -26,7 +26,7 @@
 
     <div class="container">
         <h2>Load Points</h2>
-        <p>Enter points in CSV format (Name,X,Y,Z,h) or upload a file:</p>
+        <p>Enter points in CSV format (Name,X,Y,Z,h), paste LandXML 1.1, or upload a file:</p>
         <p>Example: (use comma as field separator)<br>
             <code>
                 100,58015.6241,-28942.0209,338.4000,1.35 <br>
@@ -34,7 +34,7 @@
             </code></p>
         <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
         <br><br>
-        <input type="file" id="fileInput" accept=".csv,.txt,.xml">
+        <input type="file" id="fileInput" accept=".csv,.txt,.xml,.landxml">
         <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
         <br><br>
         <button id="loadPoints">Load Points</button>

@@ -2,3 +2,9 @@
 ._stakeout-assistant.css
 ._stakeout-assistant.js
 ._.gitignore
+
+# Dependencies and local-only survey validation
+node_modules/
+work/
+._*
+.DS_Store

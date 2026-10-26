@@ -23,7 +23,7 @@ test('New source increments revision while historical entries retain full input 
     const changed=importCsvProject(first.project,csv.replace('P1,3,4,100.5','P1,30,40,105'));
     assert.equal(changed.revision,2);assert.equal(changed.sourcePoints[2].e,30);assert.equal(changed.fieldbook[0].target.e,3);assert.equal(changed.fieldbook[0].sourceRevision,1);assert.equal(changed.setups.length,0);
 });
-test('Rejected configuration does not create setup or libretto rows',()=>{
+test('Rejected configuration does not create setup or fieldbook rows',()=>{
     const project=importCsvProject(createProject(),csv);const before=JSON.stringify(project);
     assert.throws(()=>appendStakeout(project,{...selection,orientationId:selection.stationId}));assert.throws(()=>appendStakeout(project,{...selection,targetHeight:NaN}));assert.equal(JSON.stringify(project),before);
 });

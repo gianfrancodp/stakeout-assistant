@@ -1,4 +1,4 @@
-import { createProject, importCsvProject, defaultPointHeight, appendStakeout, removeFieldbookEntry, validateConfigurationNumber } from './src/model.mjs';
+import { createProject, importSurveyProject, defaultPointHeight, appendStakeout, removeFieldbookEntry, validateConfigurationNumber } from './src/model.mjs';
 import { kilometresToMetres, radiansToGon } from './src/core/units.mjs';
 import { fieldbookToCsv, CsvValidationError } from './src/io/csv.mjs';
 
@@ -38,7 +38,10 @@ function renderPoints() {
         const row = body.insertRow();
         textCell(row, point.name);
         for (const axis of ['e', 'n', 'z']) textCell(row, fixed(point[axis]));
-        textCell(row, fixed(defaultPointHeight(project, point.id, 'target')));
+        const role = project.setups.some(setup => setup.kind === 'survey' && setup.pointId === point.id) ? 'instrument' : 'target';
+        const key = role === 'instrument' ? 'instrumentHeight' : 'targetHeight';
+        const cell = textCell(row, project.pointDefaults[point.id]?.[key + 'Ambiguous'] ? 'varies' : fixed(defaultPointHeight(project, point.id, role)));
+        cell.title = `${role} height default; raw observation heights are preserved separately.`;
     }
     const ids = project.sourcePoints.map(point => point.id);
     for (const id of ['stationPoint', 'orientPoint', 'targetPoint']) {
@@ -78,17 +81,22 @@ function renderFieldbook() {
         textCell(row, fixed(entry.result.targetHeight));
     }
 }
-function loadCsv(text, fileName) {
-    // Nothing in the active project or DOM changes until the entire CSV is valid.
-    const next = importCsvProject(project, text, fileName);
+function loadInput(text, fileName) {
+    // Nothing in the active project or DOM changes until the entire input is valid.
+    const next = importSurveyProject(project, text, fileName);
     project = next;
     element('pointInput').value = text;
     renderPoints();
     renderFieldbook();
     element('polarResult').replaceChildren();
-    if (project.fieldbook.length) {
-        showFileWarning('New points loaded. Rows marked * retain the coordinates and heights from a previous source revision.');
-    } else clearFileWarning();
+    const notices = [];
+    if (project.importSummary) {
+        const summary = project.importSummary;
+        notices.push(`LandXML 1.1: ${summary.documents} documents, ${summary.points} exported points, ${summary.setups} setups, ${summary.observations} raw observations (${summary.directionOnly} direction-only).`);
+        notices.push(...new Set(project.diagnostics.map(item => item.message)));
+    }
+    if (project.fieldbook.length) notices.push('Rows marked * retain coordinates and heights from a previous source revision.');
+    if (notices.length) showFileWarning(notices.join('\n')); else clearFileWarning();
 }
 function appendLine(parent, text = '', strong = false) {
     const node = document.createElement(strong ? 'strong' : 'span');
@@ -157,7 +165,7 @@ function calculate() {
 }
 element('loadPoints').addEventListener('click', () => {
     readSequence++;
-    try { loadCsv(element('pointInput').value, 'Manual points.csv'); }
+    try { loadInput(element('pointInput').value, 'Manual points.csv'); }
     catch (error) { reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n'); }
 });
 element('pointInput').addEventListener('input', () => { readSequence++; });
@@ -166,11 +174,10 @@ element('fileInput').addEventListener('change', async event => {
     const sequence = ++readSequence;
     if (!file) return;
     try {
-        if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum CSV size: 10 MB.');
+        if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum input size: 10 MB.');
         const text = await file.text();
         if (sequence !== readSequence) return;
-        if (file.name.toLowerCase().endsWith('.xml')) throw new RangeError('LandXML is planned for phase 2. Import a Name,X,Y,Z,h CSV file for now.');
-        loadCsv(text, file.name);
+        loadInput(text, file.name);
     } catch (error) {
         if (sequence === readSequence) reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n');
     } finally { event.target.value = ''; }

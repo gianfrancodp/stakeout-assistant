@@ -146,7 +146,7 @@ select, input[type="number"] {
 
     <div class="container">
         <h2>Load Points</h2>
-        <p>Enter points in CSV format (Name,X,Y,Z,h) or upload a file:</p>
+        <p>Enter points in CSV format (Name,X,Y,Z,h), paste LandXML 1.1, or upload a file:</p>
         <p>Example: (use comma as field separator)<br>
             <code>
                 100,58015.6241,-28942.0209,338.4000,1.35 <br>
@@ -154,7 +154,7 @@ select, input[type="number"] {
             </code></p>
         <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
         <br><br>
-        <input type="file" id="fileInput" accept=".csv,.txt,.xml">
+        <input type="file" id="fileInput" accept=".csv,.txt,.xml,.landxml">
         <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
         <br><br>
         <button id="loadPoints">Load Points</button>
@@ -242,24 +242,24 @@ const FULL_CIRCLE = 2 * Math.PI;
 const DEFAULT_EARTH_RADIUS = 6371000;
 function requireFinite(value, label) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
-        throw new TypeError(`${label}: inserire un numero finito.`);
+        throw new TypeError(`${label}: enter a finite number.`);
     }
     return value;
 }
 function normalizeAngle(angle) {
-    requireFinite(angle, 'Angolo');
+    requireFinite(angle, 'Angle');
     const normalized = ((angle % FULL_CIRCLE) + FULL_CIRCLE) % FULL_CIRCLE;
     return normalized === 0 ? 0 : normalized;
 }
 function radiansToGon(radians) {
-    return requireFinite(radians, 'Angolo') * 200 / Math.PI;
+    return requireFinite(radians, 'Angle') * 200 / Math.PI;
 }
 function gonToRadians(gon) {
-    return requireFinite(gon, 'Angolo') * Math.PI / 200;
+    return requireFinite(gon, 'Angle') * Math.PI / 200;
 }
 function kilometresToMetres(kilometres) {
-    const metres = requireFinite(kilometres, 'Raggio terrestre') * 1000;
-    return requireFinite(metres, 'Raggio terrestre');
+    const metres = requireFinite(kilometres, 'Earth radius') * 1000;
+    return requireFinite(metres, 'Earth radius');
 }
 
 return { FULL_CIRCLE, DEFAULT_EARTH_RADIUS, requireFinite, normalizeAngle, radiansToGon, gonToRadians, kilometresToMetres };
@@ -269,34 +269,34 @@ const { DEFAULT_EARTH_RADIUS, normalizeAngle, requireFinite } = __modules["src/c
 
 
 function validateCartesian(point, label) {
-    if (!point) throw new TypeError(`${label}: punto assente.`);
+    if (!point) throw new TypeError(`${label}: point is missing.`);
     for (const axis of ['e', 'n', 'z']) requireFinite(point[axis], `${label}, ${axis.toUpperCase()}`);
 }
 function validateHeight(height, label) {
     requireFinite(height, label);
-    if (height < 0) throw new RangeError(`${label}: l’altezza non può essere negativa.`);
+    if (height < 0) throw new RangeError(`${label}: height must not be negative.`);
 }
 /** Azimuth clockwise from North. No DOM access; arguments are never changed. */
 function calculateAzimuth(from, to) {
-    validateCartesian(from, 'Stazione');
-    validateCartesian(to, 'Punto di direzione');
+    validateCartesian(from, 'Station');
+    validateCartesian(to, 'Direction point');
     const east = to.e - from.e;
     const north = to.n - from.n;
-    if (!Number.isFinite(east) || !Number.isFinite(north)) throw new RangeError('Differenza di coordinate fuori intervallo.');
+    if (!Number.isFinite(east) || !Number.isFinite(north)) throw new RangeError('Coordinate difference is out of range.');
     if (Math.hypot(east, north) <= 1e-9) {
-        throw new RangeError('Stazione e punto di direzione coincidono in planimetria: azimut indeterminato.');
+        throw new RangeError('Station and direction point coincide in plan: azimuth is undefined.');
     }
     return normalizeAngle(Math.atan2(east, north));
 }
 /** Returns a separate horizontal distance reduction; it does not alter point coordinates. */
 function reduceToSeaLevel(distance, meanHeight, earthRadius = DEFAULT_EARTH_RADIUS) {
-    requireFinite(distance, 'Distanza orizzontale');
-    requireFinite(meanHeight, 'Quota media');
-    requireFinite(earthRadius, 'Raggio terrestre');
+    requireFinite(distance, 'Horizontal distance');
+    requireFinite(meanHeight, 'Mean elevation');
+    requireFinite(earthRadius, 'Earth radius');
     if (distance < 0 || earthRadius <= 0 || earthRadius + meanHeight <= 0 || !Number.isFinite(earthRadius + meanHeight)) {
-        throw new RangeError('Parametri di riduzione al mare non validi.');
+        throw new RangeError('Invalid sea-level reduction parameters.');
     }
-    return requireFinite(distance * (earthRadius / (earthRadius + meanHeight)), 'Distanza ridotta');
+    return requireFinite(distance * (earthRadius / (earthRadius + meanHeight)), 'Reduced distance');
 }
 /**
  * Cartesian ground coordinates -> computed stakeout angles and distances.
@@ -304,11 +304,11 @@ function reduceToSeaLevel(distance, meanHeight, earthRadius = DEFAULT_EARTH_RADI
  * All angles in the returned object are radians, all distances are metres.
  */
 function calculatePolar({ station, orientation, target, instrumentHeight, targetHeight, earthRadius = DEFAULT_EARTH_RADIUS }) {
-    validateCartesian(station, 'Stazione');
-    validateCartesian(orientation, 'Orientamento');
-    validateCartesian(target, 'Bersaglio');
-    validateHeight(instrumentHeight, 'Altezza strumento');
-    validateHeight(targetHeight, 'Altezza bersaglio');
+    validateCartesian(station, 'Station');
+    validateCartesian(orientation, 'Orientation');
+    validateCartesian(target, 'Target');
+    validateHeight(instrumentHeight, 'Instrument height');
+    validateHeight(targetHeight, 'Target height');
     const orientationAzimuth = calculateAzimuth(station, orientation);
     const targetAzimuth = calculateAzimuth(station, target);
     const relativeAzimuth = normalizeAngle(targetAzimuth - orientationAzimuth);
@@ -327,7 +327,7 @@ function calculatePolar({ station, orientation, target, instrumentHeight, target
         meanGroundHeight, seaLevelHorizontalDistance, seaLevelScaleFactor,
         stationGroundElevation: station.z, targetGroundElevation: target.z,
         instrumentHeight, targetHeight, earthRadius };
-    for (const [key, value] of Object.entries(result)) requireFinite(value, `Risultato ${key}`);
+    for (const [key, value] of Object.entries(result)) requireFinite(value, `Result ${key}`);
     return result;
 }
 
@@ -339,7 +339,7 @@ const { requireFinite, radiansToGon } = __modules["src/core/units.mjs"];
 
 class CsvValidationError extends Error {
     constructor(issues) {
-        super(issues.map(issue => `Riga ${issue.line}: ${issue.message}`).join('\n'));
+        super(issues.map(issue => `Row ${issue.line}: ${issue.message}`).join('\n'));
         this.name = 'CsvValidationError';
         this.issues = issues;
     }
@@ -365,15 +365,15 @@ function readCsvRecords(text) {
         if (char === ',') { endField(); continue; }
         if (newline) { endRow(); if (char === '\r' && text[i + 1] === '\n') i++; line++; startLine = line; continue; }
         if (state === 'afterQuote') {
-            if (!/\s/.test(char)) throw new CsvValidationError([{ line, message: 'Caratteri dopo la chiusura di un campo tra virgolette.' }]);
+            if (!/\s/.test(char)) throw new CsvValidationError([{ line, message: 'Unexpected characters after a closing quote.' }]);
             continue;
         }
         if (char === '"') {
             if (state === 'start' || field.trim() === '') { field = ''; state = 'quoted'; }
-            else throw new CsvValidationError([{ line, message: 'Virgolette non valide nel campo CSV.' }]);
+            else throw new CsvValidationError([{ line, message: 'Invalid quotes in CSV field.' }]);
         } else { field += char; if (!/\s/.test(char)) state = 'unquoted'; }
     }
-    if (state === 'quoted') throw new CsvValidationError([{ line: startLine, message: 'Campo tra virgolette non chiuso.' }]);
+    if (state === 'quoted') throw new CsvValidationError([{ line: startLine, message: 'Unclosed quoted field.' }]);
     endRow();
     return rows;
 }
@@ -384,39 +384,39 @@ function csvHeader(fields) {
 function csvNumber(value, label, line, issues, optional = false) {
     if (value === undefined || value.trim() === '') {
         if (optional) return 0;
-        issues.push({ line, message: `${label} mancante.` }); return NaN;
+        issues.push({ line, message: `${label} is missing.` }); return NaN;
     }
     if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())) {
-        issues.push({ line, message: `${label} non numerico: usare il punto decimale.` }); return NaN;
+        issues.push({ line, message: `${label} is not numeric: use a decimal point.` }); return NaN;
     }
     const number = Number(value);
-    if (!Number.isFinite(number)) issues.push({ line, message: `${label} deve essere un numero finito.` });
+    if (!Number.isFinite(number)) issues.push({ line, message: `${label} must be a finite number.` });
     return number;
 }
 /** Pure, all-or-nothing parser. Legacy CSV maps X to East, Y to North. */
 function parsePointsCsv(text) {
-    if (typeof text !== 'string') throw new TypeError('Il CSV deve essere testo.');
-    if (text.length > 10 * 1024 * 1024) throw new CsvValidationError([{ line: 1, message: 'Dimensione massima CSV: 10 MB.' }]);
+    if (typeof text !== 'string') throw new TypeError('CSV input must be text.');
+    if (text.length > 10 * 1024 * 1024) throw new CsvValidationError([{ line: 1, message: 'Maximum CSV size: 10 MB.' }]);
     const clean = text.replace(/^\uFEFF/, '');
     if (/^\s*(?:<\?xml|<(?:\w+:)?LandXML\b)/i.test(clean)) {
-        throw new CsvValidationError([{ line: 1, message: 'LandXML non disponibile nella fase 1. Importare un CSV Name,X,Y,Z,h.' }]);
+        throw new CsvValidationError([{ line: 1, message: 'LandXML requires the XML importer, not the CSV parser.' }]);
     }
     const records = readCsvRecords(clean), issues = [], points = [], defaults = {}, names = new Set();
     if (records.length && csvHeader(records[0].fields)) records.shift();
-    if (!records.length) throw new CsvValidationError([{ line: 1, message: 'Nessun punto presente nel CSV.' }]);
+    if (!records.length) throw new CsvValidationError([{ line: 1, message: 'No points found in CSV input.' }]);
     for (const record of records) {
         const fields = record.fields.map(value => value.trim()), line = record.line;
         if (fields.length !== 4 && fields.length !== 5) {
-            issues.push({ line, message: `Attesi 4 o 5 campi Name,X,Y,Z,h; trovati ${fields.length}.` }); continue;
+            issues.push({ line, message: `Expected 4 or 5 fields Name,X,Y,Z,h; found ${fields.length}.` }); continue;
         }
         const [name, x, y, z, height] = fields;
-        if (!name) issues.push({ line, message: 'Nome punto mancante.' });
-        else if (names.has(name)) issues.push({ line, message: `Nome punto duplicato: ${name}.` });
+        if (!name) issues.push({ line, message: 'Point name is missing.' });
+        else if (names.has(name)) issues.push({ line, message: `Duplicate point name: ${name}.` });
         names.add(name);
         const point = { id: `point-${points.length + 1}`, name,
-            e: csvNumber(x, 'X / Est', line, issues), n: csvNumber(y, 'Y / Nord', line, issues), z: csvNumber(z, 'Z / Quota', line, issues) };
-        const h = csvNumber(height, 'h predefinita', line, issues, true);
-        if (h < 0) issues.push({ line, message: 'h predefinita non può essere negativa.' });
+            e: csvNumber(x, 'X / East', line, issues), n: csvNumber(y, 'Y / North', line, issues), z: csvNumber(z, 'Z / Elevation', line, issues) };
+        const h = csvNumber(height, 'Default h', line, issues, true);
+        if (h < 0) issues.push({ line, message: 'Default h must not be negative.' });
         points.push(point);
         defaults[point.id] = { instrumentHeight: h, targetHeight: h };
     }
@@ -437,7 +437,7 @@ function fieldbookToCsv(records, currentRevision) {
             radiansToGon(result.relativeAzimuth), radiansToGon(result.zenithAngle), result.slopeDistance,
             result.targetHeight, result.instrumentHeight, entry.orientation.name,
             entry.sourceRevision, entry.sourceRevision === currentRevision ? 'current' : 'previous-source'];
-        for (const i of [2, 3, 4, 5, 6, 8]) requireFinite(row[i], 'Valore del libretto');
+        for (const i of [2, 3, 4, 5, 6, 8]) requireFinite(row[i], 'Fieldbook value');
         rows.push(row);
     }
     return '\uFEFF' + rows.map(row => row.map((value, index) => encodeCsvCell(value, [0, 1, 7].includes(index))).join(',')).join('\r\n');
@@ -445,39 +445,290 @@ function fieldbookToCsv(records, currentRevision) {
 
 return { CsvValidationError, parsePointsCsv, fieldbookToCsv };
 })();
+__modules["src/io/landxml11.mjs"] = (() => {
+
+/** LandXML 1.1 / Leica import. No coordinate reduction or network adjustment is performed. */
+class LandXMLValidationError extends Error {
+    constructor(message, document = null) {
+        super(document ? `LandXML document ${document}: ${message}` : `LandXML: ${message}`);
+        this.name = 'LandXMLValidationError';
+        this.issues = [{ document, message }];
+    }
+}
+const LANDXML_NAMESPACE = 'http://www.landxml.org/schema/LandXML-1.1';
+const LENGTH_UNITS = { meter: 1, millimeter: 0.001, centimeter: 0.01, kilometer: 1000, foot: 0.3048, USSurveyFoot: 1200 / 3937 };
+const children = node => Array.from(node.childNodes || []).filter(child => child.nodeType === 1);
+const firstChild = (node, name) => children(node).find(child => child.localName === name && child.namespaceURI === LANDXML_NAMESPACE);
+const descendants = (node, name) => Array.from(node.getElementsByTagNameNS(LANDXML_NAMESPACE, name));
+const attributes = node => node ? Object.fromEntries(Array.from(node.attributes).map(attr => [attr.name, attr.value])) : {};
+const directText = node => Array.from(node?.childNodes || []).filter(child => child.nodeType === 3 || child.nodeType === 4).map(child => child.nodeValue).join(' ').trim();
+function xmlNumber(value, label, document) {
+    if (value === null || value === undefined || value.trim() === '' || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim()) || !Number.isFinite(Number(value))) {
+        throw new LandXMLValidationError(`${label} must be a finite number.`, document);
+    }
+    return Number(value);
+}
+function landxmlAngleToRadians(value, unit) {
+    const number = xmlNumber(String(value), 'Angle');
+    if (['grads', 'gon', 'gons'].includes(unit)) return number * (Math.PI / 200);
+    if (['decimal degrees', 'degrees'].includes(unit)) return number * (Math.PI / 180);
+    if (unit === 'radians') return number;
+    if (['dd.mm.ss', 'dd.mmss'].includes(unit)) {
+        const absolute = Math.abs(number), degree = Math.floor(absolute);
+        const minute = Math.floor((absolute - degree) * 100 + 1e-9);
+        const second = ((absolute - degree) * 100 - minute) * 100;
+        if (minute >= 60 || second >= 60.000001) throw new LandXMLValidationError('Invalid dd.mm.ss angle.');
+        return Math.sign(number) * (degree + minute / 60 + second / 3600) * Math.PI / 180;
+    }
+    throw new LandXMLValidationError(`Unsupported angle unit: ${unit}.`);
+}
+/** DOMParser is native in the browser; tests can inject an equivalent constructor. */
+function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser } = {}) {
+    if (typeof text !== 'string' || !text.trim()) throw new LandXMLValidationError('Empty XML input.');
+    if (text.length > 10 * 1024 * 1024) throw new LandXMLValidationError('Maximum input size: 10 MB.');
+    if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new LandXMLValidationError('DTD and external entities are not supported.');
+    if (typeof Parser !== 'function') throw new LandXMLValidationError('DOMParser is unavailable in this environment.');
+    // Leica appends independent XML documents using the DOS end-of-file character.
+    const chunks = text.split('\x1a').map(chunk => chunk.replace(/^\s*\uFEFF/, '').trim()).filter(Boolean);
+    const diagnostics = [], documents = [], setups = [], observations = [], equipment = [];
+    const catalog = new Map(), heightCandidates = new Map();
+    function diagnostic(code, message, document) { diagnostics.push({ severity: 'warning', code, message, document }); }
+    function reference(name, document) {
+        if (!name?.trim()) throw new LandXMLValidationError('Point name/reference is missing.', document);
+        name = name.trim();
+        if (!catalog.has(name)) catalog.set(name, { id: `point-${catalog.size + 1}`, name, position: null, role: '', origin: null });
+        return catalog.get(name);
+    }
+    function position(node, factor, document) {
+        const content = directText(node);
+        if (!content) return null;
+        const parts = content.split(/\s+/);
+        if (parts.length !== 3) throw new LandXMLValidationError(`${node.localName} requires North East Elevation coordinates.`, document);
+        const values = parts.map(value => xmlNumber(value, node.localName, document) * factor);
+        if (!values.every(Number.isFinite)) throw new LandXMLValidationError('Coordinate conversion overflow.', document);
+        return { n: values[0], e: values[1], z: values[2] };
+    }
+    function setPosition(point, value, origin, document) {
+        if (!value) return;
+        if (point.position) {
+            const delta = Math.hypot(point.position.e - value.e, point.position.n - value.n, point.position.z - value.z);
+            if (delta > 0.000001) {
+                if (origin === 'CgPoint') throw new LandXMLValidationError(`Conflicting coordinates for point ${point.name}.`, document);
+                diagnostic('coordinate-disagreement', `${point.name}: exported ${origin} differs from the point catalog; both source records are preserved.`, document);
+            }
+        } else { point.position = value; point.origin = origin; }
+    }
+    function recordHeight(id, role, value) {
+        if (!heightCandidates.has(id)) heightCandidates.set(id, { instrument: new Set(), target: new Set() });
+        heightCandidates.get(id)[role].add(value);
+    }
+    for (const [index, chunk] of chunks.entries()) {
+        const documentIndex = index + 1;
+        let doc;
+        try {
+            doc = new Parser({ onError: (level, message) => { throw new Error(`${level}: ${message}`); } }).parseFromString(chunk, 'application/xml');
+        } catch (error) { throw new LandXMLValidationError(`Malformed XML: ${error.message}`, documentIndex); }
+        const root = doc.documentElement;
+        if (!root || root.localName === 'parsererror' || doc.getElementsByTagNameNS('*', 'parsererror').length) throw new LandXMLValidationError('Malformed XML.', documentIndex);
+        if (root.localName !== 'LandXML' || root.namespaceURI !== LANDXML_NAMESPACE || root.getAttribute('version') !== '1.1') {
+            throw new LandXMLValidationError('Expected LandXML 1.1 with the LandXML-1.1 namespace.', documentIndex);
+        }
+        const unitsNode = firstChild(root, 'Units');
+        const unit = unitsNode && (firstChild(unitsNode, 'Metric') || firstChild(unitsNode, 'Imperial'));
+        if (!unit) throw new LandXMLValidationError('Units/Metric or Units/Imperial is required.', documentIndex);
+        const linearUnit = unit.getAttribute('linearUnit');
+        const factor = Object.hasOwn(LENGTH_UNITS, linearUnit) ? LENGTH_UNITS[linearUnit] : null;
+        if (!factor) throw new LandXMLValidationError(`Unsupported linear unit: ${linearUnit}.`, documentIndex);
+        const angularUnit = unit.getAttribute('angularUnit') || 'radians';
+        const leica = descendants(root, 'Application').some(node => /leica/i.test(node.getAttribute('manufacturer') || ''));
+        const directionUnit = unit.getAttribute('directionUnit') || (leica ? angularUnit : 'radians');
+        landxmlAngleToRadians(0, angularUnit); landxmlAngleToRadians(0, directionUnit);
+        if (leica && !unit.hasAttribute('directionUnit')) diagnostic('leica-direction-unit', `Leica profile: missing directionUnit interpreted as ${angularUnit}.`, documentIndex);
+        const numeric = (node, key, fallback = null) => node.hasAttribute(key) ? xmlNumber(node.getAttribute(key), `${node.localName}.${key}`, documentIndex) : fallback;
+        const length = (node, key, fallback = null) => {
+            const value = numeric(node, key, fallback);
+            if (value === null) return null;
+            const converted = value * factor;
+            if (!Number.isFinite(converted)) throw new LandXMLValidationError(`${key} conversion overflow.`, documentIndex);
+            return converted;
+        };
+        const angle = (node, key, unitName = angularUnit) => {
+            const value = numeric(node, key);
+            return value === null ? null : landxmlAngleToRadians(value, unitName);
+        };
+        documents.push({ index: documentIndex, version: '1.1', namespace: root.namespaceURI, linearUnit, angularUnit, directionUnit, rootAttributes: attributes(root) });
+        for (const node of descendants(root, 'CgPoint')) {
+            const point = reference(node.getAttribute('name'), documentIndex), value = position(node, factor, documentIndex);
+            if (!value) throw new LandXMLValidationError(`CgPoint ${point.name} has no 3D coordinates.`, documentIndex);
+            setPosition(point, value, 'CgPoint', documentIndex);
+            const role = node.getAttribute('role') || '';
+            if (!point.role || /control|fixed|reference/i.test(role)) point.role = role;
+        }
+        const localEquipment = new Map();
+        for (const node of descendants(root, 'InstrumentDetails')) {
+            const sourceId = node.getAttribute('id');
+            if (!sourceId || localEquipment.has(sourceId)) throw new LandXMLValidationError('Missing or duplicated InstrumentDetails id.', documentIndex);
+            const entry = { id: `document-${documentIndex}:${sourceId}`, sourceId, document: documentIndex, attributes: attributes(node),
+                properties: descendants(node, 'Property').map(property => attributes(property)) };
+            localEquipment.set(sourceId, entry); equipment.push(entry);
+        }
+        const localSetups = new Map();
+        for (const node of descendants(root, 'InstrumentSetup')) {
+            const sourceId = node.getAttribute('id'), instrument = firstChild(node, 'InstrumentPoint');
+            if (!sourceId || localSetups.has(sourceId)) throw new LandXMLValidationError('Missing or duplicated InstrumentSetup id.', documentIndex);
+            const point = reference(instrument?.getAttribute('pntRef') || instrument?.getAttribute('name') || node.getAttribute('stationName'), documentIndex);
+            const exportedPosition = position(instrument, factor, documentIndex);
+            setPosition(point, exportedPosition, 'InstrumentPoint', documentIndex);
+            const instrumentHeight = length(node, 'instrumentHeight');
+            if (instrumentHeight === null || instrumentHeight < 0) throw new LandXMLValidationError('Nonnegative instrumentHeight is required.', documentIndex);
+            const equipmentRef = node.getAttribute('instrumentDetailsID');
+            if (equipmentRef && !localEquipment.has(equipmentRef)) throw new LandXMLValidationError(`Unknown instrumentDetailsID ${equipmentRef}.`, documentIndex);
+            const setup = { id: `document-${documentIndex}:${sourceId}`, sourceId, document: documentIndex, kind: 'survey',
+                pointId: point.id, stationName: node.getAttribute('stationName') || point.name, instrumentHeight,
+                orientationAzimuth: angle(node, 'orientationAzimuth', directionUnit), circleAzimuth: angle(node, 'circleAzimuth', directionUnit),
+                equipmentId: equipmentRef ? localEquipment.get(equipmentRef).id : null,
+                exportedPosition, attributes: attributes(node),
+                properties: children(node).filter(child => child.localName === 'Feature' && child.namespaceURI === LANDXML_NAMESPACE).flatMap(feature => descendants(feature, 'Property').map(property => attributes(property))), backsights: [] };
+            localSetups.set(sourceId, setup); setups.push(setup); recordHeight(point.id, 'instrument', instrumentHeight);
+        }
+        function owner(node) {
+            for (let current = node; current?.nodeType === 1; current = current.parentNode) {
+                if (current.hasAttribute('setupID')) return current.getAttribute('setupID');
+                if (current.localName === 'InstrumentSetup') return current.getAttribute('id');
+            }
+            return null;
+        }
+        for (const node of descendants(root, 'Backsight')) {
+            const setup = localSetups.get(owner(node)), targetNode = firstChild(node, 'BacksightPoint');
+            if (!setup) throw new LandXMLValidationError('Backsight references an unknown setupID.', documentIndex);
+            const point = reference(targetNode?.getAttribute('pntRef') || targetNode?.getAttribute('name'), documentIndex);
+            setPosition(point, position(targetNode, factor, documentIndex), 'BacksightPoint', documentIndex);
+            setup.backsights.push({ pointId: point.id, circle: angle(node, 'circle'), azimuth: angle(node, 'azimuth', directionUnit), attributes: attributes(node) });
+        }
+        const targetSetups = new Map();
+        for (const node of descendants(root, 'TargetSetup')) {
+            const id = node.getAttribute('id');
+            if (!id || targetSetups.has(id)) throw new LandXMLValidationError('Missing or duplicated TargetSetup id.', documentIndex);
+            targetSetups.set(id, node);
+        }
+        for (const node of descendants(root, 'RawObservation')) {
+            const setup = localSetups.get(owner(node));
+            if (!setup) throw new LandXMLValidationError('RawObservation references an unknown setupID.', documentIndex);
+            if (descendants(node, 'OffsetVals').length) throw new LandXMLValidationError('OffsetVals observations are not supported in this importer.', documentIndex);
+            const target = firstChild(node, 'TargetPoint'), targetSetupId = node.getAttribute('targetSetupID');
+            const targetSetup = targetSetupId ? targetSetups.get(targetSetupId) : null;
+            if (targetSetupId && !targetSetup) throw new LandXMLValidationError(`Unknown targetSetupID ${targetSetupId}.`, documentIndex);
+            const targetSetupPoint = targetSetup && firstChild(targetSetup, 'TargetPoint');
+            const point = reference(target?.getAttribute('pntRef') || target?.getAttribute('name') || targetSetupPoint?.getAttribute('pntRef') || targetSetupPoint?.getAttribute('name'), documentIndex);
+            const exportedPosition = position(target, factor, documentIndex) || position(targetSetupPoint, factor, documentIndex);
+            setPosition(point, exportedPosition, 'TargetPoint', documentIndex);
+            const targetHeight = node.hasAttribute('targetHeight') ? length(node, 'targetHeight') : targetSetup ? length(targetSetup, 'targetHeight', 0) : 0;
+            const raw = { id: `observation-${observations.length + 1}`, kind: 'raw-survey', document: documentIndex,
+                setupId: setup.id, targetPointId: point.id, targetName: point.name,
+                purpose: node.getAttribute('purpose') || 'normal', targetHeight,
+                horizontalAngle: angle(node, 'horizAngle'), zenithAngle: angle(node, 'zenithAngle'), azimuth: angle(node, 'azimuth', directionUnit),
+                slopeDistance: length(node, 'slopeDistance'), horizontalDistance: length(node, 'horizDistance'), verticalDistance: length(node, 'vertDistance'),
+                directFace: node.hasAttribute('directFace') ? node.getAttribute('directFace') : null,
+                exportedPosition, attributes: attributes(node), properties: descendants(node, 'Property').map(property => attributes(property)) };
+            for (const key of ['horizontalAngle', 'zenithAngle', 'azimuth']) {
+                if (raw[key] !== null && (!Number.isFinite(raw[key]) || raw[key] < 0 || raw[key] > 2 * Math.PI + 1e-10)) {
+                    throw new LandXMLValidationError(`${key} is outside one complete circle.`, documentIndex);
+                }
+            }
+            if (raw.horizontalAngle === null && raw.azimuth === null) throw new LandXMLValidationError(`Missing direction for target ${point.name}.`, documentIndex);
+            if (targetHeight < 0 || raw.slopeDistance < 0 || raw.horizontalDistance < 0) throw new LandXMLValidationError(`Negative distance or target height at ${point.name}.`, documentIndex);
+            if (raw.directFace !== null && !['true', 'false', '1', '0'].includes(raw.directFace)) throw new LandXMLValidationError('Invalid directFace boolean.', documentIndex);
+            raw.directFace = raw.directFace === null ? null : ['true', '1'].includes(raw.directFace);
+            raw.directionOnly = raw.slopeDistance === null && raw.horizontalDistance === null;
+            observations.push(raw); recordHeight(point.id, 'target', targetHeight);
+            if (raw.purpose === 'backsight') setup.backsights.push({ observationId: raw.id, pointId: point.id, circle: raw.horizontalAngle, azimuth: raw.azimuth });
+        }
+        for (const tag of ['ReducedObservation', 'RedHorizontalPosition', 'RedVerticalPosition', 'Surface', 'Parcel', 'Alignment']) {
+            if (descendants(root, tag).length) diagnostic('unsupported-element', `${tag} is retained in the source XML but not interpreted by this importer.`, documentIndex);
+        }
+    }
+    const points = [...catalog.values()].filter(point => point.position).map(point => ({ id: point.id, name: point.name, ...point.position, role: point.role, coordinateSource: point.origin }));
+    if (!points.length && !observations.length) throw new LandXMLValidationError('No usable 3D points or raw observations found.');
+    const pointDefaults = {};
+    for (const point of catalog.values()) {
+        const values = heightCandidates.get(point.id);
+        const defaults = {};
+        for (const role of ['instrument', 'target']) {
+            const candidates = [...(values?.[role] || [])];
+            defaults[`${role}Height`] = candidates.length === 1 ? candidates[0] : 0;
+            if (candidates.length > 1) {
+                defaults[`${role}HeightAmbiguous`] = true;
+                diagnostic('ambiguous-height', `${point.name}: multiple ${role} heights; a single stakeout default cannot be inferred.`, null);
+            }
+        }
+        pointDefaults[point.id] = defaults;
+    }
+    if (documents.length > 1) diagnostic('concatenated-documents', `${documents.length} DOS EOF-separated LandXML documents were combined; duplicate catalog coordinates checked.`, null);
+    if (observations.length) diagnostic('exported-coordinates', 'Point coordinates are imported from the Leica export. Raw polar observations are preserved; coordinate reduction is planned for phase 3.', null);
+    return { points, pointDefaults, setups, observations, equipment, diagnostics,
+        pointReferences: [...catalog.values()].map(point => ({ id: point.id, name: point.name, hasCoordinates: !!point.position })),
+        source: { format: 'landxml', version: '1.1', axisOrder: 'NEZ->ENZ', text, documents },
+        summary: { documents: documents.length, points: points.length, setups: setups.length, observations: observations.length,
+            directionOnly: observations.filter(raw => raw.directionOnly).length } };
+}
+
+return { LandXMLValidationError, LANDXML_NAMESPACE, landxmlAngleToRadians, parseLandXML11 };
+})();
 __modules["src/model.mjs"] = (() => {
 const { calculatePolar } = __modules["src/core/polar.mjs"];
 const { DEFAULT_EARTH_RADIUS, requireFinite } = __modules["src/core/units.mjs"];
 const { parsePointsCsv } = __modules["src/io/csv.mjs"];
+const { parseLandXML11 } = __modules["src/io/landxml11.mjs"];
 
 
 
 
-function createProject(name = 'Nuovo tracciamento') {
+
+function createProject(name = 'New stakeout') {
     return { schemaVersion: 1, id: globalThis.crypto?.randomUUID?.() ?? `project-${Date.now()}-${Math.random().toString(36).slice(2)}`, name, revision: 0,
         units: { linear: 'metre', angular: 'radian' },
         frame: { type: 'local-cartesian', axisOrder: 'ENZ', verticalDatum: 'unspecified' },
         sourceFiles: [], sourcePoints: [], pointDefaults: {}, setups: [], observations: [],
+        equipment: [], sourcePointReferences: [], importSummary: null,
         calculatedPoints: [], controls: [], georeference: null, georeferencedPoints: [],
         mapLayers: [], mapView: { type: 'local' }, fieldbook: [], diagnostics: [] };
 }
 /** Returns a replacement project only after every CSV row has been validated. */
-function importCsvProject(project, text, fileName = 'Punti manuali.csv') {
+function importCsvProject(project, text, fileName = 'Manual points.csv') {
     const parsed = parsePointsCsv(text);
     return { ...project, revision: project.revision + 1,
         sourceFiles: [{ ...parsed.source, name: fileName }], sourcePoints: parsed.points,
         pointDefaults: parsed.pointDefaults, setups: [], observations: [], calculatedPoints: [],
         controls: [], georeference: null, georeferencedPoints: [], diagnostics: [],
+        equipment: [], sourcePointReferences: [], importSummary: null,
         // Historical fieldbook entries retain their immutable input snapshots and revision.
         fieldbook: [...project.fieldbook] };
 }
+/** LandXML points are exported coordinates, not a phase-3 polar reduction. */
+function importLandXMLProject(project, text, fileName = 'Survey.land.xml', options = {}) {
+    const parsed = parseLandXML11(text, options);
+    return { ...project, revision: project.revision + 1,
+        sourceFiles: [{ ...parsed.source, name: fileName }], sourcePoints: parsed.points,
+        pointDefaults: parsed.pointDefaults, setups: parsed.setups, observations: parsed.observations,
+        equipment: parsed.equipment, sourcePointReferences: parsed.pointReferences, importSummary: parsed.summary,
+        diagnostics: parsed.diagnostics, calculatedPoints: [], controls: [], georeference: null,
+        georeferencedPoints: [], fieldbook: [...project.fieldbook] };
+}
+function importSurveyProject(project, text, fileName = 'Manual points', options = {}) {
+    if (typeof text === 'string' && (text.replace(/^\uFEFF/, '').trimStart().startsWith('<') || /\.(?:xml|landxml)$/i.test(fileName))) {
+        return importLandXMLProject(project, text, fileName, options);
+    }
+    return importCsvProject(project, text, fileName);
+}
 function pointById(project, id) {
     const point = project.sourcePoints.find(point => point.id === id);
-    if (!point) throw new RangeError('Punto selezionato non presente nel progetto.');
+    if (!point) throw new RangeError('Selected point was not found in the project.');
     return point;
 }
 function defaultPointHeight(project, id, role) {
-    return project.pointDefaults[id]?.[role === 'instrument' ? 'instrumentHeight' : 'targetHeight'] ?? 0;
+    const key = role === 'instrument' ? 'instrumentHeight' : 'targetHeight';
+    if (project.pointDefaults[id]?.[key + 'Ambiguous']) throw new RangeError(`Multiple ${role} heights for this point: choose an unambiguous point configuration before stakeout.`);
+    return project.pointDefaults[id]?.[key] ?? 0;
 }
 function prepareStakeout(project, selection) {
     const station = pointById(project, selection.stationId);
@@ -491,7 +742,9 @@ function prepareStakeout(project, selection) {
 /** A computed stakeout is not a raw measured observation. */
 function appendStakeout(project, selection) {
     const calculation = prepareStakeout(project, selection);
-    const setup = { id: `setup-${project.revision}-${project.setups.length + 1}`,
+    const prefix = `setup-${project.revision}-`;
+    const setupNumber = project.setups.reduce((highest, setup) => setup.id.startsWith(prefix) ? Math.max(highest, Number(setup.id.slice(prefix.length))) : highest, 0) + 1;
+    const setup = { id: `${prefix}${setupNumber}`,
         kind: 'stakeout', pointId: calculation.station.id, orientationPointId: calculation.orientation.id,
         instrumentHeight: calculation.result.instrumentHeight, sourceRevision: project.revision };
     const entry = { id: `entry-${project.fieldbook.reduce((max, row) => Math.max(max, Number(row.id.slice(6))), 0) + 1}`,
@@ -502,20 +755,20 @@ function appendStakeout(project, selection) {
 function removeFieldbookEntry(project, id) {
     const fieldbook = project.fieldbook.filter(entry => entry.id !== id);
     const referenced = new Set(fieldbook.filter(entry => entry.sourceRevision === project.revision).map(entry => entry.setupId));
-    return { ...project, fieldbook, setups: project.setups.filter(setup => referenced.has(setup.id)) };
+    return { ...project, fieldbook, setups: project.setups.filter(setup => setup.kind === 'survey' || referenced.has(setup.id)) };
 }
 function validateConfigurationNumber(raw, label, { positive = false } = {}) {
-    if (typeof raw !== 'string' || raw.trim() === '') throw new TypeError(`${label}: campo obbligatorio.`);
+    if (typeof raw !== 'string' || raw.trim() === '') throw new TypeError(`${label}: this field is required.`);
     const value = Number(raw);
     requireFinite(value, label);
-    if (positive ? value <= 0 : value < 0) throw new RangeError(`${label}: ${positive ? 'deve essere maggiore di zero' : 'non può essere negativa'}.`);
+    if (positive ? value <= 0 : value < 0) throw new RangeError(`${label}: ${positive ? 'must be greater than zero' : 'must not be negative'}.`);
     return value;
 }
 
-return { createProject, importCsvProject, pointById, defaultPointHeight, prepareStakeout, appendStakeout, removeFieldbookEntry, validateConfigurationNumber };
+return { createProject, importCsvProject, importLandXMLProject, importSurveyProject, pointById, defaultPointHeight, prepareStakeout, appendStakeout, removeFieldbookEntry, validateConfigurationNumber };
 })();
 __modules["stakeout-assistant.js"] = (() => {
-const { createProject, importCsvProject, defaultPointHeight, appendStakeout, removeFieldbookEntry, validateConfigurationNumber } = __modules["src/model.mjs"];
+const { createProject, importSurveyProject, defaultPointHeight, appendStakeout, removeFieldbookEntry, validateConfigurationNumber } = __modules["src/model.mjs"];
 const { kilometresToMetres, radiansToGon } = __modules["src/core/units.mjs"];
 const { fieldbookToCsv, CsvValidationError } = __modules["src/io/csv.mjs"];
 
@@ -558,7 +811,10 @@ function renderPoints() {
         const row = body.insertRow();
         textCell(row, point.name);
         for (const axis of ['e', 'n', 'z']) textCell(row, fixed(point[axis]));
-        textCell(row, fixed(defaultPointHeight(project, point.id, 'target')));
+        const role = project.setups.some(setup => setup.kind === 'survey' && setup.pointId === point.id) ? 'instrument' : 'target';
+        const key = role === 'instrument' ? 'instrumentHeight' : 'targetHeight';
+        const cell = textCell(row, project.pointDefaults[point.id]?.[key + 'Ambiguous'] ? 'varies' : fixed(defaultPointHeight(project, point.id, role)));
+        cell.title = `${role} height default; raw observation heights are preserved separately.`;
     }
     const ids = project.sourcePoints.map(point => point.id);
     for (const id of ['stationPoint', 'orientPoint', 'targetPoint']) {
@@ -598,17 +854,22 @@ function renderFieldbook() {
         textCell(row, fixed(entry.result.targetHeight));
     }
 }
-function loadCsv(text, fileName) {
-    // Nothing in the active project or DOM changes until the entire CSV is valid.
-    const next = importCsvProject(project, text, fileName);
+function loadInput(text, fileName) {
+    // Nothing in the active project or DOM changes until the entire input is valid.
+    const next = importSurveyProject(project, text, fileName);
     project = next;
     element('pointInput').value = text;
     renderPoints();
     renderFieldbook();
     element('polarResult').replaceChildren();
-    if (project.fieldbook.length) {
-        showFileWarning('New points loaded. Rows marked * retain the coordinates and heights from a previous source revision.');
-    } else clearFileWarning();
+    const notices = [];
+    if (project.importSummary) {
+        const summary = project.importSummary;
+        notices.push(`LandXML 1.1: ${summary.documents} documents, ${summary.points} exported points, ${summary.setups} setups, ${summary.observations} raw observations (${summary.directionOnly} direction-only).`);
+        notices.push(...new Set(project.diagnostics.map(item => item.message)));
+    }
+    if (project.fieldbook.length) notices.push('Rows marked * retain coordinates and heights from a previous source revision.');
+    if (notices.length) showFileWarning(notices.join('\n')); else clearFileWarning();
 }
 function appendLine(parent, text = '', strong = false) {
     const node = document.createElement(strong ? 'strong' : 'span');
@@ -677,7 +938,7 @@ function calculate() {
 }
 element('loadPoints').addEventListener('click', () => {
     readSequence++;
-    try { loadCsv(element('pointInput').value, 'Manual points.csv'); }
+    try { loadInput(element('pointInput').value, 'Manual points.csv'); }
     catch (error) { reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n'); }
 });
 element('pointInput').addEventListener('input', () => { readSequence++; });
@@ -686,11 +947,10 @@ element('fileInput').addEventListener('change', async event => {
     const sequence = ++readSequence;
     if (!file) return;
     try {
-        if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum CSV size: 10 MB.');
+        if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum input size: 10 MB.');
         const text = await file.text();
         if (sequence !== readSequence) return;
-        if (file.name.toLowerCase().endsWith('.xml')) throw new RangeError('LandXML is planned for phase 2. Import a Name,X,Y,Z,h CSV file for now.');
-        loadCsv(text, file.name);
+        loadInput(text, file.name);
     } catch (error) {
         if (sequence === readSequence) reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n');
     } finally { event.target.value = ''; }

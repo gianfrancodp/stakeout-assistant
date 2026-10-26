@@ -27,7 +27,7 @@ for(const [name,text] of [
     ['comma-only row','A,1,2,3\n,,,'],['empty text',' \n'],['header only','Name,X,Y,Z,h\n']
 ])test(`Rejects ${name}`,()=>assert.throws(()=>parsePointsCsv(text),CsvValidationError));
 test('XML is rejected explicitly before CSV import',()=>{
-    for(const xml of ['<?xml version="1.0"?><LandXML/>','\uFEFF <LandXML version="1.1"/>'])assert.throws(()=>parsePointsCsv(xml),/LandXML non disponibile nella fase 1/);
+    for(const xml of ['<?xml version="1.0"?><LandXML/>','\uFEFF <LandXML version="1.1"/>'])assert.throws(()=>parsePointsCsv(xml),/LandXML requires/);
 });
 test('Multiple row errors are reported together',()=>{
     assert.throws(()=>parsePointsCsv('A,,2,3\nB,1,no,3\nC,1,2,no'),error=>error.issues.length===3&&error.issues[2].line===3);

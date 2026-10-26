@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.1" version="1.1">
+  <Units><Metric linearUnit="meter" angularUnit="grads"/></Units>
+  <Application name="LandXML Export" manufacturer="Leica Geosystems AG" version="1.11"/>
+  <CgPoints>
+    <CgPoint name="S1" role="control point">2000 1000 100</CgPoint>
+    <CgPoint name="O1">2010 1000 100</CgPoint>
+    <CgPoint name="P1" role="measured">2004 1003 101.2</CgPoint>
+  </CgPoints>
+  <Survey>
+    <Equipment><InstrumentDetails id="TS02" manufacturer="Leica Geosystems AG" model="TS02power-7">
+      <Corrections><Feature code="TPSCorrection">
+        <Property label="oID" value="correction-1"/>
+        <Property label="referenceRadius" value="6378000"/>
+        <Property label="refractionCoefficient" value="0.13"/>
+      </Feature></Corrections>
+    </InstrumentDetails></Equipment>
+    <InstrumentSetup id="setup-S1" stationName="S1" instrumentDetailsID="TS02" instrumentHeight="1.49" orientationAzimuth="50" circleAzimuth="10">
+      <Feature code="TPSSetup"><Property label="type" value="knownAzimuth"/></Feature>
+      <InstrumentPoint pntRef="S1"/>
+      <RawObservation setupID="setup-S1" purpose="backsight" targetHeight="0" horizAngle="0" zenithAngle="100" directFace="true">
+        <TargetPoint name="999"/>
+      </RawObservation>
+      <RawObservation setupID="setup-S1" purpose="normal" targetHeight="1.8" horizAngle="40" zenithAngle="99" slopeDistance="5" horizDistance="4.999383" directFace="true">
+        <TargetPoint name="P1" pntRef="P1">2004 1003 101.2</TargetPoint>
+        <Feature code="observationInfo"><Property label="TPSCorrectionRef" value="correction-1"/></Feature>
+      </RawObservation>
+    </InstrumentSetup>
+  </Survey>
+</LandXML>

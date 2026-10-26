@@ -32,8 +32,8 @@ test('Relative direction wraps correctly through north and a full circle',()=>{
     close(kilometresToMetres(6371),6371000);
 });
 test('Coincident orientation, target and non-finite coordinates are rejected',()=>{
-    assert.throws(()=>calculatePolar({...base,orientation:{...station}}),/indeterminato/);
-    assert.throws(()=>calculatePolar({...base,target:{...station,z:200}}),/indeterminato/);
+    assert.throws(()=>calculatePolar({...base,orientation:{...station}}),/azimuth is undefined/);
+    assert.throws(()=>calculatePolar({...base,target:{...station,z:200}}),/azimuth is undefined/);
     for(const invalid of [NaN,Infinity,-Infinity,undefined,'3'])assert.throws(()=>calculatePolar({...base,target:{e:invalid,n:4,z:100}}));
 });
 test('No negative, missing or infinite instrument/target heights',()=>{
