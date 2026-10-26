@@ -1,0 +1,186 @@
+{
+  "sourceCommit": "20d7fda8a8aa2b04fe65d8d0744668e92d745347",
+  "description": "Numerical outputs captured from the upstream calculatePolar function using synthetic coordinates; radians are compared after conversion to gon.",
+  "cases": [
+    {
+      "name": "README-style coordinates",
+      "station": {
+        "name": "ST1",
+        "x": 1000,
+        "y": 2000,
+        "z": 100,
+        "height": 1.6
+      },
+      "orientation": {
+        "name": "OR1",
+        "x": 1050,
+        "y": 2050,
+        "z": 101.5,
+        "height": 1.6
+      },
+      "target": {
+        "name": "P1",
+        "x": 1085,
+        "y": 2040,
+        "z": 104.25,
+        "height": 1.8
+      },
+      "earthRadiusKm": 6371,
+      "expected": {
+        "orientAzimuth": 50,
+        "targetAzimuth": 71.99875150502771,
+        "relativeAzimuth": 21.998751505027712,
+        "zenithAngleGon": 96.9865898053315,
+        "horizontalDistance": 93.94147114027967,
+        "totalDistance": 94.0468101532423,
+        "seaLevelDistance": 93.9399653140424,
+        "scaleFactor": 0.9999839705912735,
+        "dz": 4.450000000000003
+      }
+    },
+    {
+      "name": "North crossing and negative coordinates",
+      "station": {
+        "name": "ST1",
+        "x": -320,
+        "y": -220,
+        "z": 82.5,
+        "height": 1.49
+      },
+      "orientation": {
+        "name": "OR1",
+        "x": -321,
+        "y": -120,
+        "z": 82.5,
+        "height": 0
+      },
+      "target": {
+        "name": "P1",
+        "x": -318,
+        "y": -120,
+        "z": 79.25,
+        "height": 2.72
+      },
+      "earthRadiusKm": 6378,
+      "expected": {
+        "orientAzimuth": 399.36340144701836,
+        "targetAzimuth": 1.273069820194558,
+        "relativeAzimuth": 1.9096683731762027,
+        "zenithAngleGon": 101.28554006125682,
+        "horizontalDistance": 100.0199980003999,
+        "totalDistance": 100.04039384168777,
+        "seaLevelDistance": 100.0187297321705,
+        "scaleFactor": 0.9999873198534818,
+        "dz": -2.019999999999996
+      }
+    },
+    {
+      "name": "Inclined 3-4-12 triangle",
+      "station": {
+        "name": "ST1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "height": 0
+      },
+      "orientation": {
+        "name": "OR1",
+        "x": 0,
+        "y": 10,
+        "z": 0,
+        "height": 0
+      },
+      "target": {
+        "name": "P1",
+        "x": 3,
+        "y": 4,
+        "z": 12,
+        "height": 0
+      },
+      "earthRadiusKm": 6371,
+      "expected": {
+        "orientAzimuth": 0,
+        "targetAzimuth": 40.96655293982669,
+        "relativeAzimuth": 40.96655293982669,
+        "zenithAngleGon": 25.13318327560046,
+        "horizontalDistance": 5,
+        "totalDistance": 13,
+        "seaLevelDistance": 4.999995291167517,
+        "scaleFactor": 0.9999990582335034,
+        "dz": 12
+      }
+    },
+    {
+      "name": "Descending target in southwest quadrant",
+      "station": {
+        "name": "ST1",
+        "x": 58000,
+        "y": -28900,
+        "z": 338.4,
+        "height": 1.35
+      },
+      "orientation": {
+        "name": "OR1",
+        "x": 58100,
+        "y": -28950,
+        "z": 338.5,
+        "height": 5
+      },
+      "target": {
+        "name": "P1",
+        "x": 57890,
+        "y": -28980,
+        "z": 310.2,
+        "height": 1.8
+      },
+      "earthRadiusKm": 6371,
+      "expected": {
+        "orientAzimuth": 129.51672353008667,
+        "targetAzimuth": 259.9695851276627,
+        "relativeAzimuth": 130.45286159757603,
+        "zenithAngleGon": 112.81260411041491,
+        "horizontalDistance": 136.01470508735443,
+        "totalDistance": 138.81665065834142,
+        "seaLevelDistance": 136.00778194755134,
+        "scaleFactor": 0.9999491000638596,
+        "dz": -27.75
+      }
+    },
+    {
+      "name": "Below sea level, northern target",
+      "station": {
+        "name": "ST1",
+        "x": 0,
+        "y": 0,
+        "z": -30,
+        "height": 1.6
+      },
+      "orientation": {
+        "name": "OR1",
+        "x": 10,
+        "y": 0,
+        "z": -30,
+        "height": 0
+      },
+      "target": {
+        "name": "P1",
+        "x": 0,
+        "y": 25,
+        "z": -28,
+        "height": 1.8
+      },
+      "earthRadiusKm": 6371,
+      "expected": {
+        "orientAzimuth": 100,
+        "targetAzimuth": 0,
+        "relativeAzimuth": 300,
+        "zenithAngleGon": 94.41214046468284,
+        "horizontalDistance": 25,
+        "totalDistance": 25.09661331733826,
+        "seaLevelDistance": 25.00011379741016,
+        "scaleFactor": 1.0000045518964065,
+        "dz": 2.1999999999999993
+      }
+    }
+  ]
+}
