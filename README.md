@@ -1,6 +1,6 @@
 # Stakeout Assistant
 
-A static JavaScript tool for preparing total-station stakeout from Cartesian ground coordinates. Import CSV points, choose station/orientation/target, set instrument and prism heights independently, and calculate relative direction, zenith and slope distance.
+A static JavaScript tool for preparing total-station stakeout from Cartesian ground coordinates. Import CSV points, choose station/orientation/target, and calculate relative direction, zenith and slope distance using the original interface.
 
 This branch implements **phase 1** of the upgrade: a shared project model, a numerical engine independent of the DOM, validated CSV import and a fieldbook stored as numerical records. LandXML 1.1 import, survey-network reduction, WGS84 georeferencing and OGC WMS overlays belong to the following phases.
 
@@ -22,9 +22,9 @@ To produce an offline file:
 npm run build
 ```
 
-Open `dist/stakeout-assistant.html` directly in a modern browser. The build embeds the JavaScript modules, stylesheet and logo into one HTML file. Node.js is required only for development, tests and packaging; the resulting file runs without it or an Internet connection.
+Open `dist/stakeout-assistant.html` directly in a modern browser. The build embeds the JavaScript modules, original stylesheet, logo and original flowchart into one HTML file. Node.js is required only for development, tests and packaging; the resulting file runs without it or an Internet connection.
 
-The prototype starts with five synthetic example points. Its interface is in Italian.
+The original English interface, section order, typography, colours, tables, logo and flowchart are preserved. It opens with empty input, as before. The only HTML changes connect the existing buttons to module event handlers; no new visible controls are introduced. Synthetic points are available in the CSV fixture below.
 
 ## Input and coordinate conventions
 
@@ -41,7 +41,7 @@ P1,1035.000,2045.000,101.200,1.800
 - A header is optional. Four columns are sufficient; the fifth column `h` is optional and defaults to zero.
 - Use commas between fields and a decimal point in numbers. Quoted CSV names, escaped quotes, BOM, CRLF and scientific notation are supported.
 - Point names must be nonempty and unique. Coordinates must be finite; default heights must be finite and nonnegative.
-- `h` supplies an initial configuration value when a point is selected as station or target. Actual instrument height belongs to the setup; target height belongs to the individual calculated shot. Editing either input does not alter ground coordinates or earlier shots.
+- `h` supplies the instrument height when the point is selected as station and the target height when selected as target, preserving the existing CSV workflow. Internally these are separate setup/shot values, and the numerical API accepts independent heights for each calculation. Ground coordinates and earlier shots are not altered. Separate on-page height controls are not introduced in this phase.
 - The input limit is 10 MB. Invalid rows produce line-numbered errors. Import is all-or-nothing: a failed import preserves the active points and fieldbook.
 - XML is explicitly rejected in phase 1, without attempting to interpret it as CSV.
 
@@ -49,12 +49,12 @@ A reusable synthetic file is available in [tests/fixtures/example.csv](tests/fix
 
 ## Prepare a fieldbook
 
-1. Import points, or choose **Carica esempio**.
-2. Select **Stazione**, **Orientamento** and **Bersaglio**. The orientation defines the zero of the relative horizontal direction.
-3. Set **Altezza strumento** and **Altezza prisma / bersaglio**, in metres.
-4. Press **Calcola e aggiungi al libretto**.
-5. Repeat for other targets or heights. Select a target name in the fieldbook to inspect that shot, or remove a row with its × button.
-6. Download **Esporta CSV** before closing the page.
+1. Paste CSV points and press **Load Points**, or upload a CSV/TXT file with the existing file input.
+2. Select **Station Point**, **Orientation Point** and **Target Point**. The orientation defines the zero of the relative horizontal direction.
+3. The CSV `h` values supply the station instrument height and target prism height, as in the existing interface.
+4. Press **Calculate and add row to Fieldbook**.
+5. Repeat for other targets. Remove a fieldbook row with its **-** button.
+6. Use **Download Field-book CSV** before closing the page.
 
 Angles are displayed in gon, clockwise from North; zenith is 100 gon at the horizon. The fieldbook stores the slope distance from instrument to reflector. Instrument height is added to station ground Z and target height to target ground Z.
 
@@ -70,7 +70,7 @@ Coincident station/orientation or station/target positions in plan are rejected 
 
 ## Revisions and precision
 
-A successful CSV import increments the source revision. Existing fieldbook entries retain snapshots of the coordinates, instrument/target heights and results used for their calculation. Following a new import, they are marked **precedente**; they are not silently recalculated against the new points.
+A successful CSV import increments the source revision. Existing fieldbook entries retain snapshots of the coordinates, instrument/target heights and results used for their calculation. Following a new import, the target names of historical rows are marked with `*` and their tooltips identify the previous revision; they are not silently recalculated against the new points. The existing warning box explains that marker.
 
 All calculations and CSV exports use the numerical model at full JavaScript precision. Three-decimal distances and four-decimal angles are display formatting only. Export preserves the original first six columns:
 
