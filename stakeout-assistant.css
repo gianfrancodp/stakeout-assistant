@@ -12,7 +12,7 @@ body {
 }
 
 .button {
-    background-color: #4CAF50; /* Verde */
+    background-color: #4CAF50; /* Green */
     border: none;
     color: white;
     padding: 15px 32px;
@@ -42,9 +42,9 @@ tr:nth-child(even) {
     background-color: #f2f2f2;
 }
 
-/*Frist colum header*/
+/* First column header */
 th:first-child {
-    background-color: #ff0000; /* Giallo */
+    background-color: #ff0000; /* Red */
     font-weight: bold;
     text-align: center;
 }
@@ -104,7 +104,7 @@ select, input[type="number"] {
 }
 
 .calculate-button {
-    background-color: #3440c9; /* Verde */
+    background-color: #3440c9; /* Blue */
     border: none;
     color: white;
     padding: 10px 20px;

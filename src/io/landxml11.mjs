@@ -1,4 +1,4 @@
-/** LandXML 1.1 / Leica import. No coordinate reduction or network adjustment is performed. */
+/** LandXML 1.1 / Leica import. Raw observations remain separate from derived survey coordinates. */
 export class LandXMLValidationError extends Error {
     constructor(message, document = null) {
         super(document ? `LandXML document ${document}: ${message}` : `LandXML: ${message}`);
@@ -33,15 +33,79 @@ export function landxmlAngleToRadians(value, unit) {
     }
     throw new LandXMLValidationError(`Unsupported angle unit: ${unit}.`);
 }
+/** Split complete XML documents, recognizing export markers only outside their root elements. */
+function splitExportDocuments(text, diagnostics) {
+    const chunks = [];
+    let cursor = 0, dotMarkers = 0, encodedBoms = 0;
+    const fail = () => {
+        const line = text.slice(0, cursor).split('\n').length;
+        throw new LandXMLValidationError(`Unexpected text outside an XML document at line ${line}.`);
+    };
+    while (cursor < text.length) {
+        if (/[\s\uFEFF\x1a]/.test(text[cursor])) { cursor++; continue; }
+        const encodedBom = ['Ôªø', 'ï»¿'].find(marker => text.startsWith(marker, cursor));
+        if (encodedBom) { cursor += encodedBom.length; encodedBoms++; continue; }
+        // Some copied Leica exports use a standalone dot line between documents and at EOF.
+        if (text[cursor] === '.' && (cursor === 0 || /\s/.test(text[cursor - 1])) && /^\.[ \t]*(?:\r?\n|$)/.test(text.slice(cursor))) {
+            cursor++; dotMarkers++; continue;
+        }
+        if (chunks.length && text.startsWith('<!--', cursor)) {
+            const end = text.indexOf('-->', cursor + 4);
+            if (end < 0) fail();
+            chunks[chunks.length - 1] += text.slice(cursor, end + 3);
+            cursor = end + 3; continue;
+        }
+        if (chunks.length && text.startsWith('<?', cursor) && !/^<\?xml(?:\s|\?>)/.test(text.slice(cursor))) {
+            const end = text.indexOf('?>', cursor + 2);
+            if (end < 0) fail();
+            chunks[chunks.length - 1] += text.slice(cursor, end + 2);
+            cursor = end + 2; continue;
+        }
+        if (text[cursor] !== '<') fail();
+        const start = cursor;
+        let depth = 0, rootSeen = false, complete = false;
+        while (cursor < text.length) {
+            const tagStart = text.indexOf('<', cursor);
+            if (tagStart < 0) break;
+            let end, token;
+            if (text.startsWith('<!--', tagStart) || text.startsWith('<![CDATA[', tagStart) || text.startsWith('<?', tagStart)) {
+                const terminator = text.startsWith('<!--', tagStart) ? '-->' : text.startsWith('<![CDATA[', tagStart) ? ']]>' : '?>';
+                end = text.indexOf(terminator, tagStart + 2);
+                if (end < 0) break;
+                cursor = end + terminator.length; continue;
+            }
+            let quote = null;
+            for (end = tagStart + 1; end < text.length; end++) {
+                const char = text[end];
+                if (quote) { if (char === quote) quote = null; }
+                else if (char === '"' || char === "'") quote = char;
+                else if (char === '>') break;
+            }
+            if (end === text.length) break;
+            token = text.slice(tagStart, end + 1);
+            if (token.startsWith('</')) depth--;
+            else if (!token.startsWith('<!')) { rootSeen = true; if (!/\/\s*>$/.test(token)) depth++; }
+            cursor = end + 1;
+            if (rootSeen && depth === 0) { complete = true; break; }
+        }
+        // Leave malformed or truncated document content intact for DOMParser to reject.
+        if (!complete) cursor = text.length;
+        chunks.push(text.slice(start, cursor));
+    }
+    if (dotMarkers) diagnostics.push({ severity: 'warning', code: 'export-dot-separator',
+        message: `${dotMarkers} standalone dot separator(s) outside XML documents were ignored; the original source is preserved.`, document: null });
+    if (encodedBoms) diagnostics.push({ severity: 'warning', code: 'misencoded-bom',
+        message: `${encodedBoms} misencoded byte-order marker(s) between XML documents were ignored; XML content was not recoded.`, document: null });
+    return chunks;
+}
 /** DOMParser is native in the browser; tests can inject an equivalent constructor. */
 export function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser } = {}) {
     if (typeof text !== 'string' || !text.trim()) throw new LandXMLValidationError('Empty XML input.');
     if (text.length > 10 * 1024 * 1024) throw new LandXMLValidationError('Maximum input size: 10 MB.');
     if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new LandXMLValidationError('DTD and external entities are not supported.');
     if (typeof Parser !== 'function') throw new LandXMLValidationError('DOMParser is unavailable in this environment.');
-    // Leica appends independent XML documents using the DOS end-of-file character.
-    const chunks = text.split('\x1a').map(chunk => chunk.replace(/^\s*\uFEFF/, '').trim()).filter(Boolean);
     const diagnostics = [], documents = [], setups = [], observations = [], equipment = [];
+    const chunks = splitExportDocuments(text, diagnostics);
     const catalog = new Map(), heightCandidates = new Map();
     function diagnostic(code, message, document) { diagnostics.push({ severity: 'warning', code, message, document }); }
     function reference(name, document) {
@@ -107,7 +171,8 @@ export function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser 
             const value = numeric(node, key);
             return value === null ? null : landxmlAngleToRadians(value, unitName);
         };
-        documents.push({ index: documentIndex, version: '1.1', namespace: root.namespaceURI, linearUnit, angularUnit, directionUnit, rootAttributes: attributes(root) });
+        documents.push({ index: documentIndex, version: '1.1', namespace: root.namespaceURI, linearUnit, angularUnit, directionUnit,
+            instrumentProfile: leica ? 'leica-ts02' : null, rootAttributes: attributes(root) });
         for (const node of descendants(root, 'CgPoint')) {
             const point = reference(node.getAttribute('name'), documentIndex), value = position(node, factor, documentIndex);
             if (!value) throw new LandXMLValidationError(`CgPoint ${point.name} has no 3D coordinates.`, documentIndex);
@@ -136,6 +201,7 @@ export function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser 
             if (equipmentRef && !localEquipment.has(equipmentRef)) throw new LandXMLValidationError(`Unknown instrumentDetailsID ${equipmentRef}.`, documentIndex);
             const setup = { id: `document-${documentIndex}:${sourceId}`, sourceId, document: documentIndex, kind: 'survey',
                 pointId: point.id, stationName: node.getAttribute('stationName') || point.name, instrumentHeight,
+                horizontalAngleConvention: leica ? 'clockwise-from-north' : 'counterclockwise-from-east',
                 orientationAzimuth: angle(node, 'orientationAzimuth', directionUnit), circleAzimuth: angle(node, 'circleAzimuth', directionUnit),
                 equipmentId: equipmentRef ? localEquipment.get(equipmentRef).id : null,
                 exportedPosition, attributes: attributes(node),
@@ -178,6 +244,7 @@ export function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser 
                 setupId: setup.id, targetPointId: point.id, targetName: point.name,
                 purpose: node.getAttribute('purpose') || 'normal', targetHeight,
                 horizontalAngle: angle(node, 'horizAngle'), zenithAngle: angle(node, 'zenithAngle'), azimuth: angle(node, 'azimuth', directionUnit),
+                horizontalAngleConvention: leica ? 'clockwise-from-north' : 'counterclockwise-from-east',
                 slopeDistance: length(node, 'slopeDistance'), horizontalDistance: length(node, 'horizDistance'), verticalDistance: length(node, 'vertDistance'),
                 directFace: node.hasAttribute('directFace') ? node.getAttribute('directFace') : null,
                 exportedPosition, attributes: attributes(node), properties: descendants(node, 'Property').map(property => attributes(property)) };
@@ -214,8 +281,8 @@ export function parseLandXML11(text, { DOMParser: Parser = globalThis.DOMParser 
         }
         pointDefaults[point.id] = defaults;
     }
-    if (documents.length > 1) diagnostic('concatenated-documents', `${documents.length} DOS EOF-separated LandXML documents were combined; duplicate catalog coordinates checked.`, null);
-    if (observations.length) diagnostic('exported-coordinates', 'Point coordinates are imported from the Leica export. Raw polar observations are preserved; coordinate reduction is planned for phase 3.', null);
+    if (documents.length > 1) diagnostic('concatenated-documents', `${documents.length} concatenated LandXML documents were combined; duplicate catalog coordinates checked.`, null);
+    if (observations.length) diagnostic('exported-coordinates', 'Point coordinates are imported from the Leica export. Raw observations are preserved and reduced separately by the survey model.', null);
     return { points, pointDefaults, setups, observations, equipment, diagnostics,
         pointReferences: [...catalog.values()].map(point => ({ id: point.id, name: point.name, hasCoordinates: !!point.position })),
         source: { format: 'landxml', version: '1.1', axisOrder: 'NEZ->ENZ', text, documents },

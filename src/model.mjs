@@ -2,6 +2,7 @@ import { calculatePolar } from './core/polar.mjs';
 import { DEFAULT_EARTH_RADIUS, requireFinite } from './core/units.mjs';
 import { parsePointsCsv } from './io/csv.mjs';
 import { parseLandXML11 } from './io/landxml11.mjs';
+import { reduceSurvey } from './core/survey-reduction.mjs';
 
 export function createProject(name = 'New stakeout') {
     return { schemaVersion: 1, id: globalThis.crypto?.randomUUID?.() ?? `project-${Date.now()}-${Math.random().toString(36).slice(2)}`, name, revision: 0,
@@ -9,7 +10,7 @@ export function createProject(name = 'New stakeout') {
         frame: { type: 'local-cartesian', axisOrder: 'ENZ', verticalDatum: 'unspecified' },
         sourceFiles: [], sourcePoints: [], pointDefaults: {}, setups: [], observations: [],
         equipment: [], sourcePointReferences: [], importSummary: null,
-        calculatedPoints: [], controls: [], georeference: null, georeferencedPoints: [],
+        calculatedPoints: [], surveyReduction: null, controls: [], georeference: null, georeferencedPoints: [],
         mapLayers: [], mapView: { type: 'local' }, fieldbook: [], diagnostics: [] };
 }
 /** Returns a replacement project only after every CSV row has been validated. */
@@ -17,24 +18,31 @@ export function importCsvProject(project, text, fileName = 'Manual points.csv') 
     const parsed = parsePointsCsv(text);
     return { ...project, revision: project.revision + 1,
         sourceFiles: [{ ...parsed.source, name: fileName }], sourcePoints: parsed.points,
-        pointDefaults: parsed.pointDefaults, setups: [], observations: [], calculatedPoints: [],
+        pointDefaults: parsed.pointDefaults, setups: [], observations: [], calculatedPoints: [], surveyReduction: null,
         controls: [], georeference: null, georeferencedPoints: [], diagnostics: [],
         equipment: [], sourcePointReferences: [], importSummary: null,
         // Historical fieldbook entries retain their immutable input snapshots and revision.
         fieldbook: [...project.fieldbook] };
 }
-/** LandXML points are exported coordinates, not a phase-3 polar reduction. */
+/** Preserve exported points while deriving a separate result from each raw observation. */
 export function importLandXMLProject(project, text, fileName = 'Survey.land.xml', options = {}) {
     const parsed = parseLandXML11(text, options);
-    return { ...project, revision: project.revision + 1,
+    const imported = { ...project, revision: project.revision + 1,
         sourceFiles: [{ ...parsed.source, name: fileName }], sourcePoints: parsed.points,
         pointDefaults: parsed.pointDefaults, setups: parsed.setups, observations: parsed.observations,
         equipment: parsed.equipment, sourcePointReferences: parsed.pointReferences, importSummary: parsed.summary,
         diagnostics: parsed.diagnostics, calculatedPoints: [], controls: [], georeference: null,
-        georeferencedPoints: [], fieldbook: [...project.fieldbook] };
+        surveyReduction: null, georeferencedPoints: [], fieldbook: [...project.fieldbook] };
+    return reduceSurveyProject(imported, options);
+}
+export function reduceSurveyProject(project, options = {}) {
+    const surveyReduction = reduceSurvey(project, options);
+    return { ...project, calculatedPoints: surveyReduction.calculatedPoints, surveyReduction };
 }
 export function importSurveyProject(project, text, fileName = 'Manual points', options = {}) {
-    if (typeof text === 'string' && (text.replace(/^\uFEFF/, '').trimStart().startsWith('<') || /\.(?:xml|landxml)$/i.test(fileName))) {
+    const xmlCandidate = typeof text === 'string'
+        && text.replace(/^(?:[\s\u0000-\u0020\uFEFF]|Ôªø|ï»¿|\.[ \t]*(?:\r?\n|$))+/, '').startsWith('<');
+    if (xmlCandidate || /\.(?:xml|landxml)$/i.test(fileName)) {
         return importLandXMLProject(project, text, fileName, options);
     }
     return importCsvProject(project, text, fileName);

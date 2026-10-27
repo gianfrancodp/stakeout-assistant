@@ -34,7 +34,9 @@
             </code></p>
         <textarea id="pointInput" rows="5" style="width: 100%"></textarea>
         <br><br>
-        <input type="file" id="fileInput" accept=".csv,.txt,.xml,.landxml">
+        <input type="file" id="fileInput" accept=".csv,.txt,.xml,.landxml" hidden>
+        <button type="button" id="chooseFile" aria-controls="fileInput">Choose File</button>
+        <span id="selectedFileName" aria-live="polite">No file selected</span>
         <div id="fileWarning" class="warning hidden" role="status" aria-live="polite"></div>
         <br><br>
         <button id="loadPoints">Load Points</button>
@@ -50,6 +52,26 @@
                     <th>Y</th>
                     <th>Z</th>
                     <th>Instrument/Target Height</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="container hidden" id="calculatedSurveySection">
+        <h2>Reduced Survey Observations</h2>
+        <p id="surveyReductionSummary"></p>
+        <table id="surveyReductionTable">
+            <thead>
+                <tr>
+                    <th>Station</th>
+                    <th>Point</th>
+                    <th>Purpose</th>
+                    <th>E</th>
+                    <th>N</th>
+                    <th>Z</th>
+                    <th>3D Residual</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody></tbody>

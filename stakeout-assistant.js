@@ -7,6 +7,7 @@ const element = id => document.getElementById(id);
 const fixed = (value, digits = 3) => value.toFixed(digits);
 let project = createProject();
 let readSequence = 0;
+let pendingFileRead = null;
 
 function textCell(row, value) {
     const cell = row.insertCell();
@@ -55,6 +56,31 @@ function renderPoints() {
         element('targetPoint').value = ids[2] || ids[1] || ids[0];
     }
 }
+function renderSurveyReduction() {
+    const section = element('calculatedSurveySection');
+    const result = project.surveyReduction;
+    section.classList.toggle('hidden', !project.observations.length);
+    if (!result) return;
+    const { summary, profile } = result;
+    element('surveyReductionSummary').textContent = `${summary.points} survey points; ${summary.computedShots} observation${summary.computedShots === 1 ? '' : 's'} reduced across ${summary.resolvedStations} resolved station${summary.resolvedStations === 1 ? '' : 's'}; ${summary.unresolvedStations} unresolved station${summary.unresolvedStations === 1 ? '' : 's'}. Unless a source correction reference is present, curvature/refraction uses R = ${profile.referenceRadius} m and k = ${profile.refractionCoefficient}. Atmospheric ppm and prism constants are not reapplied.`;
+    const body = element('surveyReductionTable').tBodies[0];
+    body.replaceChildren();
+    for (const shot of result.shots) {
+        const row = body.insertRow();
+        textCell(row, shot.setupName || shot.setupId || '—');
+        textCell(row, shot.name || '—');
+        textCell(row, shot.purpose || '—');
+        for (const value of [shot.e, shot.n, shot.z]) textCell(row, Number.isFinite(value) ? fixed(value) : '—');
+        textCell(row, Number.isFinite(shot.residual3d) ? fixed(shot.residual3d) : '—');
+        const status = textCell(row, shot.status);
+        status.title = shot.correctionStatus
+            ? `${shot.correctionStatus}\nReference radius: ${shot.referenceRadius} m; refraction coefficient: ${shot.refractionCoefficient}.`
+            : shot.warnings?.join('\n') || '';
+        if (shot.status === 'computed' && shot.residual3d != null) {
+            status.title += `\n3D residual: ${shot.residual3d} m; ΔE ${shot.residual.e} m; ΔN ${shot.residual.n} m; ΔZ ${shot.residual.z} m`;
+        }
+    }
+}
 function renderFieldbook() {
     const body = element('Field-book-Table').tBodies[0];
     body.replaceChildren();
@@ -88,12 +114,18 @@ function loadInput(text, fileName) {
     element('pointInput').value = text;
     renderPoints();
     renderFieldbook();
+    renderSurveyReduction();
     element('polarResult').replaceChildren();
     const notices = [];
     if (project.importSummary) {
         const summary = project.importSummary;
         notices.push(`LandXML 1.1: ${summary.documents} documents, ${summary.points} exported points, ${summary.setups} setups, ${summary.observations} raw observations (${summary.directionOnly} direction-only).`);
         notices.push(...new Set(project.diagnostics.map(item => item.message)));
+        const reduction = project.surveyReduction;
+        if (reduction) {
+            notices.push(`Polar reduction: ${reduction.summary.computedShots} observations computed at ${reduction.summary.resolvedStations}/${reduction.summary.stations} stations; ${reduction.summary.unresolvedStations} unresolved.`);
+            notices.push(...new Set(reduction.diagnostics.map(item => item.message)));
+        }
     }
     if (project.fieldbook.length) notices.push('Rows marked * retain coordinates and heights from a previous source revision.');
     if (notices.length) showFileWarning(notices.join('\n')); else clearFileWarning();
@@ -163,24 +195,45 @@ function calculate() {
         reportError(error, 'Fieldbook row not added. ');
     }
 }
-element('loadPoints').addEventListener('click', () => {
+element('loadPoints').addEventListener('click', async () => {
+    // File.text() is asynchronous. If Load Points is clicked during an upload,
+    // let that import finish instead of cancelling it and parsing an empty textarea.
+    if (pendingFileRead) {
+        await pendingFileRead;
+        return;
+    }
     readSequence++;
     try { loadInput(element('pointInput').value, 'Manual points.csv'); }
     catch (error) { reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n'); }
 });
-element('pointInput').addEventListener('input', () => { readSequence++; });
-element('fileInput').addEventListener('change', async event => {
+element('pointInput').addEventListener('input', () => {
+    readSequence++;
+    // Editing the textarea takes precedence over an in-flight file selection.
+    pendingFileRead = null;
+});
+element('chooseFile').addEventListener('click', () => element('fileInput').click());
+element('fileInput').addEventListener('change', event => {
     const file = event.target.files[0];
     const sequence = ++readSequence;
     if (!file) return;
-    try {
-        if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum input size: 10 MB.');
-        const text = await file.text();
-        if (sequence !== readSequence) return;
-        loadInput(text, file.name);
-    } catch (error) {
-        if (sequence === readSequence) reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n');
-    } finally { event.target.value = ''; }
+    element('selectedFileName').textContent = file.name;
+    const input = event.target;
+    const pending = (async () => {
+        // Yield once so `pending` is assigned before any synchronous validation path reaches `finally`.
+        await Promise.resolve();
+        try {
+            if (file.size > 10 * 1024 * 1024) throw new RangeError('Maximum input size: 10 MB.');
+            const text = await file.text();
+            if (sequence !== readSequence) return;
+            loadInput(text, file.name);
+        } catch (error) {
+            if (sequence === readSequence) reportError(error, 'Import cancelled; the loaded points and fieldbook are unchanged.\n');
+        } finally {
+            if (pendingFileRead === pending) pendingFileRead = null;
+            if (sequence === readSequence) input.value = '';
+        }
+    })();
+    pendingFileRead = pending;
 });
 for (const id of ['stationPoint', 'orientPoint', 'targetPoint']) {
     element(id).addEventListener('change', () => element('polarResult').replaceChildren());

@@ -30,11 +30,39 @@ test('Direction-only point has an identity but no invented ground coordinates', 
     assert.equal(direction.directionOnly, true); assert.equal(direction.slopeDistance, null);
     assert.equal(data.points.some(point => point.name === '999'), false);
     assert.equal(data.pointReferences.find(point => point.name === '999').hasCoordinates, false);
+    assert.equal(direction.horizontalAngleConvention, 'clockwise-from-north');
 });
 test('BOM and DOS EOF-separated Leica documents merge coherent point records', () => {
     const data = parse('\uFEFF' + xml + '\n\x1a\n\uFEFF' + pointsOnly + '\x1a\n');
     assert.equal(data.summary.documents, 2); assert.equal(data.points.length, 3);
     assert.ok(data.diagnostics.some(item => item.code === 'concatenated-documents'));
+});
+test('Adjacent XML documents merge without DOS EOF separators', () => {
+    const data = parse(xml + '\n' + pointsOnly);
+    assert.equal(data.summary.documents, 2);
+    assert.equal(data.points.length, 3);
+});
+test('Standalone export dots and misencoded BOMs are reported outside XML documents', () => {
+    const input = xml + '\n.\nÔªø' + pointsOnly + '\n.';
+    const data = parse(input);
+    assert.equal(data.summary.documents, 2);
+    assert.equal(data.points.length, 3);
+    assert.equal(data.source.text, input);
+    assert.ok(data.diagnostics.some(item => item.code === 'export-dot-separator'));
+    assert.ok(data.diagnostics.some(item => item.code === 'misencoded-bom'));
+    assert.equal(parse('ï»¿' + pointsOnly).points.length, 1);
+});
+test('XML comments, CDATA and quoted markup do not create document boundaries', () => {
+    const input = pointsOnly.replace('<CgPoints>', '<!-- </LandXML> <?xml fake?> --><CgPoints>')
+        .replace('</CgPoints>', '</CgPoints><Feature code="metadata"><Property label="text" value="a > b"><![CDATA[</LandXML> <?xml fake?>]]></Property></Feature>');
+    assert.equal(parse(input).summary.documents, 1);
+    assert.equal(parse('<!-- valid leading comment -->' + pointsOnly + '<!-- valid trailing comment -->').summary.documents, 1);
+    assert.equal(parse(pointsOnly + '<?metadata value="preserved"?>').summary.documents, 1);
+});
+test('Unexpected inter-document text and punctuation inside XML remain invalid', () => {
+    for (const input of [xml + '\nunknown\n' + pointsOnly, xml + '\n12.3', xml.replace('<CgPoints>', '<.><CgPoints>'), pointsOnly + '<!-- invalid -- comment -->']) {
+        assert.throws(() => parse(input), LandXMLValidationError);
+    }
 });
 test('Namespaced prefixed XML is supported', () => {
     const prefixed = xml.replace('xmlns=', 'xmlns:l=').replace(/<(\/?)([A-Z][\w]*)(?=[\s/>])/g, '<$1l:$2');
@@ -48,7 +76,7 @@ test('ObservationGroup inherits setupID outside the InstrumentSetup element', ()
 test('Point-only files can feed Cartesian stakeout without raw observations', () => {
     const data = parse(pointsOnly); assert.equal(data.points.length, 1); assert.equal(data.observations.length, 0);
 });
-test('Raw-only files preserve uncoordinated station/target identities for phase 3', () => {
+test('Raw-only files preserve uncoordinated station/target identities for survey reduction', () => {
     const rawOnly = xml.replace(/<CgPoints>[\s\S]*?<\/CgPoints>/, '').replace('>2004 1003 101.2</TargetPoint>', '></TargetPoint>');
     const data = parse(rawOnly); assert.equal(data.points.length, 0); assert.equal(data.observations.length, 2); assert.equal(data.setups[0].exportedPosition, null);
 });
@@ -103,12 +131,16 @@ test('LandXML import is atomic and retains prior fieldbook snapshots', () => {
     assert.throws(() => importLandXMLProject(project, '<bad>', 'bad.xml', options)); assert.equal(JSON.stringify(project), before);
     const imported = importLandXMLProject(project, xml, 'example.xml', options);
     assert.equal(imported.revision, 2); assert.equal(imported.fieldbook[0].station.name, 'A'); assert.equal(imported.observations.length, 2);
-    assert.equal(imported.calculatedPoints.length, 0);
+    assert.equal(imported.calculatedPoints.length, 2);
+    assert.ok(imported.calculatedPoints.some(point => point.status === 'source-coordinate'));
 });
 test('Unified dispatch supports XML paste, XML uploads and existing CSV', () => {
     const project = createProject();
     assert.equal(importSurveyProject(project, xml, 'manual', options).sourceFiles[0].format, 'landxml');
     assert.equal(importSurveyProject(project, pointsOnly, 'points.landxml', options).sourcePoints.length, 1);
+    assert.equal(importSurveyProject(project, '\u001a\uFEFF' + xml, 'selected-file', options).sourceFiles[0].format, 'landxml');
+    assert.equal(importSurveyProject(project, '.\nÔªø' + pointsOnly, 'manual', options).sourceFiles[0].format, 'landxml');
+    assert.throws(() => importSurveyProject(project, '', 'selected-file.xml', options), LandXMLValidationError);
     assert.equal(importSurveyProject(project, 'A,1,2,3', 'points.csv', options).sourceFiles[0].format, 'csv');
 });
 test('Removing stakeout rows never removes the imported survey setups', () => {
